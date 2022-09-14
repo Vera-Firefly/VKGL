@@ -124,6 +124,8 @@ namespace OpenGL
                  OpenGL::GLContextStateReferenceUniquePtr         in_frontend_context_state_reference_ptr,
                  OpenGL::GLContextStateBindingReferencesUniquePtr in_frontend_context_state_binding_references_ptr);
 
+            void init_info();
+
             /* Private variables */
             IBackend*                                        m_backend_ptr;
             const IContextObjectManagers*                    m_frontend_ptr;
@@ -135,6 +137,8 @@ namespace OpenGL
 
             OpenGL::VKBufferReferenceUniquePtr              m_index_buffer_reference_ptr;
             std::vector<OpenGL::VKBufferReferenceUniquePtr> m_owned_buffer_reference_ptrs;
+            std::vector<OpenGL::VKImageReferenceUniquePtr> m_backend_image_reference_ptrs;
+            std::vector<Anvil::DescriptorSet*> 					m_descriptor_set_ptrs;
 
             struct Args
             {

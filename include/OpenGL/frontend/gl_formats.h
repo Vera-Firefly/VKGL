@@ -24,6 +24,7 @@ namespace OpenGL
         bool                   is_base_internal_format                             (const OpenGL::InternalFormat& in_format);
         bool                   is_compressed_internal_format                       (const OpenGL::InternalFormat& in_format);
         bool                   is_sized_internal_format                            (const OpenGL::InternalFormat& in_format);
+        OpenGL::InternalFormat choose_sized_internal_format_for_base_internal_format(const OpenGL::InternalFormat& in_base_internal_format);
     };
 };
 

@@ -7,6 +7,8 @@
 #include "Common/logger.h"
 #include "Common/macros.h"
 
+#include <cstdarg>
+
 #define LOG_FILE_NAME "VKGL_log.txt"
 
 
@@ -18,13 +20,14 @@ VKGL::Logger* VKGL::g_logger_ptr = nullptr;
 
 VKGL::Logger::Logger()
 {
-    Anvil::IO::delete_file(LOG_FILE_NAME);
+    //Anvil::IO::delete_file(LOG_FILE_NAME);
 }
 
 VKGL::Logger::~Logger()
 {
-    Anvil::IO::write_text_file(LOG_FILE_NAME,
+   /*Anvil::IO::write_text_file(LOG_FILE_NAME,
                                g_logger_ptr->m_log_data_sstream.str() );
+   */
 }
 
 void VKGL::Logger::deinit()
@@ -57,30 +60,14 @@ void VKGL::Logger::log(const LogLevel& in_log_level,
     va_start(args,
              in_message_template);
     {
-        vsprintf_s<sizeof(temp)>(temp,
+        //vsprintf<sizeof(temp)>(temp,
+        vsprintf				 (temp,
                                  in_message_template,
                                  args);
     }
     va_end(args);
+    
+    vkgl_printf("%s", temp);
 
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-
-        m_log_data_sstream << temp
-                           << "\n";
-
-        /* TODO: Writes should be async and triggered every now and then, only if needed!
-         *
-         * This mechanism is only needed for initial VKGL bring-up. Remove as soon as no longer
-         * required.
-         */
-        {
-            Anvil::IO::write_text_file(LOG_FILE_NAME,
-                                       g_logger_ptr->m_log_data_sstream.str(),
-                                       true); /* in_should_append */
-
-            g_logger_ptr->m_log_data_sstream = std::stringstream();
-        }
-    }
 }
 

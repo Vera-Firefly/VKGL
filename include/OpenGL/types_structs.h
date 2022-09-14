@@ -7,10 +7,318 @@
 
 #include "OpenGL/types_interfaces.h"
 
+#include "deps/glm/glm/glm.hpp"
+#include "deps/glm/glm/ext.hpp"
+
 namespace OpenGL
 {
     /* Forward declarations */
     struct VertexAttributeArrayState;
+
+	typedef struct FpeState
+	{
+		/* internal type declaration */
+		typedef struct FpeMatrix
+		{
+			
+        //
+        // Matrix state. p. 31, 32, 37, 39, 40.
+        //
+            glm::mat4  gl_ModelViewMatrix;
+            glm::mat4  gl_ProjectionMatrix;
+            glm::mat4  gl_ModelViewProjectionMatrix;
+
+            //
+            // Normal scaling p. 39.
+            //
+            float gl_NormalScale;
+
+            //
+            // Derived matrix state that provides inverse and transposed versions
+            // of the matrices above.
+            //
+            glm::mat3  gl_NormalMatrix;
+
+            glm::mat4  gl_ModelViewMatrixInverse;
+            glm::mat4  gl_ProjectionMatrixInverse;
+            glm::mat4  gl_ModelViewProjectionMatrixInverse;
+
+            glm::mat4  gl_ModelViewMatrixTranspose;
+            glm::mat4  gl_ProjectionMatrixTranspose;
+            glm::mat4  gl_ModelViewProjectionMatrixTranspose;
+
+            glm::mat4  gl_ModelViewMatrixInverseTranspose;
+            glm::mat4  gl_ProjectionMatrixInverseTranspose;
+            glm::mat4  gl_ModelViewProjectionMatrixInverseTranspose;
+
+            //
+            // Matrix state. p. 31, 32, 37, 39, 40.
+            //
+                        std::vector<glm::mat4>  gl_TextureMatrix;
+
+            //
+            // Derived matrix state that provides inverse and transposed versions
+            // of the matrices above.
+            //
+                        std::vector<glm::mat4>  gl_TextureMatrixInverse;
+
+                        std::vector<glm::mat4>  gl_TextureMatrixTranspose;
+
+                        std::vector<glm::mat4>  gl_TextureMatrixInverseTranspose;
+		
+		} FpeMatrix;
+		
+		typedef struct FpeFogParameters
+		{
+            GLint  mode;
+            GLint  coord_src;
+            float 	index;
+            glm::vec4 color;
+            float 	density;
+            float 	start;
+            float 	end;
+            float 	scale;
+        
+        } FpeFogParameters;
+		
+		typedef struct FpeLightState
+		{
+            struct LightModelState
+            {
+            	GLint color_control;
+            	GLint local_viewer;
+            	GLint two_side;
+            };
+            
+            LightModelState light_model_state;
+            
+            struct ColorMaterialState
+            {
+            	GLint mode;
+            };
+            
+            ColorMaterialState front_material_state;
+            ColorMaterialState back_material_state;
+            
+            //
+            // Material State p. 50, 55.
+            //
+            struct gl_MaterialParameters {
+                glm::vec4  emission;    // Ecm
+                glm::vec4  ambient;     // Acm
+                glm::vec4  diffuse;     // Dcm
+                glm::vec4  specular;    // Scm
+                float shininess;   // Srm
+            };
+            gl_MaterialParameters  gl_FrontMaterial;
+            gl_MaterialParameters  gl_BackMaterial;
+
+            //
+            // Light State p 50, 53, 55.
+            //
+            struct gl_LightSourceParameters {
+                glm::vec4  ambient;             // Acli
+                glm::vec4  diffuse;             // Dcli
+                glm::vec4  specular;            // Scli
+                glm::vec4  position;            // Ppli
+                glm::vec4  halfVector;          // Derived: Hi
+                glm::vec3  spotDirection;       // Sdli
+                float spotExponent;        // Srli
+                float spotCutoff;          // Crli
+                                                        // (range: [0.0,90.0], 180.0)
+                float spotCosCutoff;       // Derived: cos(Crli)
+                                                        // (range: [1.0,0.0],-1.0)
+                float constantAttenuation; // K0
+                float linearAttenuation;   // K1
+                float quadraticAttenuation;// K2
+            };
+
+            struct gl_LightModelParameters {
+                glm::vec4  ambient;       // Acs
+            };
+
+            gl_LightModelParameters  gl_LightModel;
+
+            //
+            // Derived state from products of light and material.
+            //
+            struct gl_LightModelProducts {
+                glm::vec4  sceneColor;     // Derived. Ecm + Acm * Acs
+            };
+
+            gl_LightModelProducts gl_FrontLightModelProduct;
+            gl_LightModelProducts gl_BackLightModelProduct;
+
+            struct gl_LightProducts {
+                glm::vec4  ambient;        // Acm * Acli
+                glm::vec4  diffuse;        // Dcm * Dcli
+                glm::vec4  specular;       // Scm * Scli
+            };
+
+            //
+            // Light State p 50, 53, 55.
+            //
+                        std::vector<gl_LightSourceParameters>  gl_LightSource;
+
+            //
+            // Derived state from products of light.
+            //
+                        std::vector<gl_LightProducts> gl_FrontLightProduct;
+                        std::vector<gl_LightProducts> gl_BackLightProduct;
+        
+        } FpeLightState;
+		
+		typedef struct FpeVertexArrays
+		{
+			typedef struct FpeClientArray
+    		{
+    			uint32_t 		bound_buffer;
+    			uint32_t 		fpe_buffer;
+    			GLsizei 		fpe_buffer_size;
+    			bool			enabled;
+    			
+    			GLint			size;
+                GLenum		  type;
+                GLsizei			stride;
+                const GLvoid*  pointer;
+    			
+    			
+    			FpeClientArray(GLint		in_size = 0,
+                            GLenum		  in_type = 0,
+                            GLsizei			in_stride = 0,
+                            const GLvoid*  in_pointer = 0
+                            )
+    				:bound_buffer  (0),
+    				fpe_buffer		(0),
+    				fpe_buffer_size(0),
+    				enabled		  (false),
+    				size		  (in_size),
+    				type		  (in_type),
+    				stride		  (in_stride),
+    				pointer		  (in_pointer)
+    			{
+    				/* Stub */
+    			}
+			
+    		} FpeClientArray;
+    		
+			FpeClientArray color_array;
+			FpeClientArray edge_flag_array;
+			FpeClientArray fog_coord_array;
+			FpeClientArray index_array;
+			FpeClientArray normal_array;
+			std::vector<FpeClientArray> tex_coord_arrays;
+			FpeClientArray secondary_color_array;
+			FpeClientArray vertex_array;
+		
+		} FpeVertexArrays;
+		
+		typedef struct AlphaTestState
+		{
+			GLint alpha_func;
+			GLclampf alpha_ref;
+		
+		} AlphaTestState;
+		
+		typedef struct FpeTextureEnv
+		{
+			std::vector<GLint> texture_env_mode;
+			std::vector<glm::vec4> texture_env_color;
+		
+		} FpeTextureEnv;
+		
+		typedef struct State
+		{
+    		glm::mat4* 	current_bound_matrix_ptr;
+    		bool 		fog_enabled;
+    		bool 		lighting_enabled;
+    		std::vector<bool> 		light_enabled;
+    		std::vector<bool> 		texture_unit_enabled;
+    		std::vector<bool> 		tex_matrix_enabled;
+    		bool 		color_material_enabled;
+    		bool 		normalize_enabled;
+    		bool 		alpha_test_enabled;
+    		bool		rescale_normal_enabled;
+    		
+    		uint32_t 	current_active_texture_unit;
+    		uint32_t 	current_client_active_texture_unit;
+    		
+    		uint32_t 	current_bound_buffer;
+    		uint32_t 	current_bound_program;
+    		uint32_t 	current_bound_vao;
+		
+		} State;
+		
+		/* internal data definition */
+		
+		FpeMatrix 			matrices;
+		FpeFogParameters fog;
+		FpeLightState		light;
+		FpeVertexArrays 	vertex_arrays;
+		
+		AlphaTestState		alpha_test;
+		FpeTextureEnv 		texture_env;
+		
+		State				state;
+		
+		
+		
+		
+		
+		
+		
+		FpeState(uint32_t in_max_lights 	= 0,
+				uint32_t in_max_tex_coords = 0);
+	
+	} FpeState;
+
+    typedef struct UniformResource
+    {
+    	struct BufferBlockInfo
+    	{
+        	struct BufferInfo
+        	{
+            	uint32_t								buffer_offset;
+            	uint32_t								buffer_elements_num;
+            	uint32_t								buffer_element_size;
+            	
+            	BufferInfo();
+            };
+            
+        	OpenGL::GLBufferReferenceUniquePtr gl_buffer_reference_ptr;
+        	OpenGL::VKBufferReferenceUniquePtr vk_buffer_reference_ptr;
+        	bool 									is_default_uniform_buffer;
+        	std::vector<BufferInfo> 				buffers;
+        	Anvil::Buffer* 							buffer_ptr;
+        	
+        	BufferBlockInfo();
+        	~BufferBlockInfo();
+        	BufferBlockInfo(const BufferBlockInfo& in_buffer_block_info);
+    	};
+    	
+    	struct SamplerInfo
+    	{
+        	OpenGL::GLTextureReferenceUniquePtr gl_texture_reference_ptr;
+        	OpenGL::VKImageReferenceUniquePtr vk_image_reference_ptr;
+        	TextureUnit								texture_unit;
+        	Anvil::ImageView* 						image_view_ptr;
+        	Anvil::Sampler* 						sampler_ptr;
+        	
+        	SamplerInfo();
+        	~SamplerInfo();
+        	SamplerInfo(const SamplerInfo& in_sampler_info);
+    	};
+    	
+    	uint32_t			binding;
+    	
+    	std::vector<BufferBlockInfo> buffer_blocks;
+    	std::vector<SamplerInfo> samplers;
+    	
+    	bool is_uniform_buffer;
+    	bool is_sampler;
+    	
+    	UniformResource();
+    } UniformResource;
 
     typedef union UniformValue
     {
@@ -531,6 +839,8 @@ namespace OpenGL
         uint32_t               samples;
         uint32_t               width;
 
+        TextureMipState() = default;
+        
         explicit TextureMipState(const OpenGL::InternalFormat& in_internal_format,
                                  const uint32_t&               in_width,
                                  const uint32_t&               in_height,
@@ -562,6 +872,8 @@ namespace OpenGL
         OpenGL::TextureWrapMode         wrap_s;
         OpenGL::TextureWrapMode         wrap_t;
 
+        TextureState() = default;
+        
         explicit TextureState(const OpenGL::TextureMinFilter& in_min_filter,
                               const OpenGL::TextureWrapMode&  in_wrap_s,
                               const OpenGL::TextureWrapMode&  in_wrap_t,
@@ -580,6 +892,12 @@ namespace OpenGL
         GLuint binding_2d_multisample_array;
         GLuint binding_3d;
         GLuint binding_cube_map;
+        GLuint binding_cube_map_negative_x;
+        GLuint binding_cube_map_negative_y;
+        GLuint binding_cube_map_negative_z;
+        GLuint binding_cube_map_positive_x;
+        GLuint binding_cube_map_positive_y;
+        GLuint binding_cube_map_positive_z;
         GLuint binding_rectangle;
         GLuint binding_texture_buffer;
 
@@ -621,19 +939,19 @@ namespace OpenGL
     /* Rendering context state */
     typedef struct GLContextStateBindingReferences
     {
-        // todo: OpenGL::GLFramebufferReferenceUniquePtr  draw_framebuffer_reference_ptr;
-        // todo: OpenGL::GLFramebufferReferenceUniquePtr  read_framebuffer_reference_ptr;
-        // todo: OpenGL::GLRenderbufferReferenceUniquePtr renderbuffer_reference_ptr;
+        //OpenGL::GLFramebufferReferenceUniquePtr  draw_framebuffer_reference_ptr;
+        //OpenGL::GLFramebufferReferenceUniquePtr  read_framebuffer_reference_ptr;
+        //OpenGL::GLRenderbufferReferenceUniquePtr renderbuffer_reference_ptr;
 
-        // todo std::unordered_map<IndexedBufferTarget,  IndexedBufferBinding, IndexedBufferTargetHashFunction> indexed_buffer_binding_ptrs;
-        // todo std::unordered_map<OpenGL::BufferTarget, OpenGL::GLBufferReferenceUniquePtr>                    nonindexed_buffer_binding_ptrs;
+        //std::unordered_map<IndexedBufferTarget,  IndexedBufferBinding, IndexedBufferTargetHashFunction> indexed_buffer_binding_ptrs;
+        //std::unordered_map<OpenGL::BufferTarget, OpenGL::GLBufferReferenceUniquePtr>                    nonindexed_buffer_binding_ptrs;
         OpenGL::GLProgramReferenceUniquePtr program_reference_ptr;
         OpenGL::GLVAOReferenceUniquePtr     vao_reference_ptr;
 
         GLContextStateBindingReferences(OpenGL::GLProgramReferenceUniquePtr in_program_reference_ptr,
-                                        OpenGL::GLVAOReferenceUniquePtr     in_vao_reference_ptr)
+                                        OpenGL::GLVAOReferenceUniquePtr     	in_vao_reference_ptr)
             :program_reference_ptr(std::move(in_program_reference_ptr) ),
-             vao_reference_ptr    (std::move(in_vao_reference_ptr)     )
+             vao_reference_ptr    (std::move(in_vao_reference_ptr)     	)
         {
             /* Stub */
         }
@@ -817,23 +1135,27 @@ namespace OpenGL
         int32_t      index;
         uint32_t     is_row_major;  /* 1 = true,                                      0 otherwise */
         int32_t      location;
+        uint32_t      binding_point;
         int32_t      matrix_stride; /* 0 for non matrix uniforms in non-default UBs, -1 for default UB uniforms */
         std::string  name;
         int32_t      offset;
         uint32_t     size; /* in units of attribute's type OR n of array items for arrayed uniforms */
         VariableType type;
         int32_t      uniform_block_index;
+        bool 		is_default_uniform;
 
         ActiveUniformProperties()
            :array_stride       (-1),
             index              (GL_INVALID_INDEX),
             is_row_major       (UINT32_MAX),
+            binding_point		(0),
             location           (-1),
             matrix_stride      (-1),
             offset             (-1),
             size               (0),
             type               (VariableType::Unknown),
-            uniform_block_index(-1)
+            uniform_block_index(-1),
+            is_default_uniform(true)
         {
             /* Stub */
         }
@@ -847,17 +1169,21 @@ namespace OpenGL
                                 const int32_t&      in_matrix_stride,
                                 const bool&         in_is_row_major,
                                 const int32_t&      in_location,
-                                const int32_t&      in_index)
+                                const uint32_t&      in_binding_point,
+                                const int32_t&      in_index,
+                                const bool&      in_is_default_uniform)
             :array_stride       (in_array_stride),
              index              (in_index),
              is_row_major       ( (in_is_row_major) ? 1 : 0),
              location           (in_location),
+             binding_point      (in_binding_point),
              matrix_stride      (in_matrix_stride),
              name               (in_name),
              offset             (in_offset),
              size               (in_size),
              type               (in_type),
-             uniform_block_index(in_uniform_block_index)
+             uniform_block_index(in_uniform_block_index),
+             is_default_uniform(in_is_default_uniform)
         {
             /* Stub */
         }

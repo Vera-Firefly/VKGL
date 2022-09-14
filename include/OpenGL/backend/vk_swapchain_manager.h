@@ -51,9 +51,10 @@ namespace OpenGL
         void set_swap_interval(const int32_t& in_swap_interval);
 
         #if defined(_WIN32)
-            void set_target_window(HWND in_window_handle);
+            void set_target_window(void* in_window_handle);
         #else
-            #error OS-specific bits.
+            void set_target_window(void* in_window_handle);
+            //#error OS-specific bits.
         #endif
 
     private:
@@ -114,7 +115,7 @@ namespace OpenGL
         typedef struct SwapchainPropsSnapshot
         {
             int32_t swap_interval;
-            HWND    window_handle;
+            void*    window_handle;
 
             SwapchainPropsSnapshot()
                 :swap_interval(0),
@@ -123,8 +124,8 @@ namespace OpenGL
                 /* Stub */
             }
 
-            SwapchainPropsSnapshot(const int32_t& in_swap_interval,
-                                   const HWND&    in_window_handle)
+            SwapchainPropsSnapshot(int32_t& in_swap_interval,
+                                   void*&    in_window_handle)
                 :swap_interval(in_swap_interval),
                  window_handle(in_window_handle)
             {

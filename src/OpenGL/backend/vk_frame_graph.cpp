@@ -33,6 +33,8 @@
 
 OpenGL::VKFrameGraph::CommandBufferDynamicState::CommandBufferDynamicState()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     is_gfx_pipeline_id_bound                          = false;
     is_dynamic_blend_color_state_bound                = false;
     is_dynamic_line_width_state_bound                 = false;
@@ -48,6 +50,8 @@ OpenGL::VKFrameGraph::CommandBufferDynamicState::CommandBufferDynamicState()
 
 OpenGL::VKFrameGraph::GroupNode::~GroupNode()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     graph_node_ptrs.clear                     ();
     input_ptrs.clear                          ();
     node_io_ptr_to_group_node_io_ptr_map.clear();
@@ -57,9 +61,12 @@ OpenGL::VKFrameGraph::GroupNode::~GroupNode()
 void OpenGL::VKFrameGraph::GroupNode::add_io(const OpenGL::NodeIO& in_io,
                                              const bool&           in_is_input)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* Check if the base object behind the IO is already exposed .. */
     auto& group_node_io_ptrs = (in_is_input) ? input_ptrs
                                              : output_ptrs;
+    bool need_new_io = true;
 
     for (auto& current_group_node_io_ptr : group_node_io_ptrs)
     {
@@ -72,21 +79,38 @@ void OpenGL::VKFrameGraph::GroupNode::add_io(const OpenGL::NodeIO& in_io,
         {
             case OpenGL::NodeIOType::Buffer:
             {
-                /* For transfer ownership purposes, we need to ensure start-end region touched by the group node corresponds
-                 * to the whole region accessed by subnodes. */
-                current_group_node_io_ptr->buffer_props.start_offset = std::min(current_group_node_io_ptr->buffer_props.start_offset,
-                                                                                in_io.buffer_props.start_offset);
-                current_group_node_io_ptr->buffer_props.size         = std::max(current_group_node_io_ptr->buffer_props.size,
-                                                                                in_io.buffer_props.size);
-
-                goto end;
+                if (current_group_node_io_ptr->buffer_reference_ptr->get_payload().buffer_ptr == in_io.buffer_reference_ptr->get_payload().buffer_ptr)
+                {
+                    /* For transfer ownership purposes, we need to ensure start-end region touched by the group node corresponds
+                     * to the whole region accessed by subnodes. */
+                    current_group_node_io_ptr->buffer_props.start_offset = std::min(current_group_node_io_ptr->buffer_props.start_offset,
+                                                                                    in_io.buffer_props.start_offset);
+                    current_group_node_io_ptr->buffer_props.size         = std::max(current_group_node_io_ptr->buffer_props.size,
+                                                                                    in_io.buffer_props.size);
+                	
+                	need_new_io = false;
+                }
+                
+                break;
             }
 
             case OpenGL::NodeIOType::Image:
             {
-                vkgl_not_implemented();
-
-                goto end;
+                if (current_group_node_io_ptr->image_reference_ptr->get_payload().image_ptr == in_io.image_reference_ptr->get_payload().image_ptr)
+                {
+                    current_group_node_io_ptr->image_props.subresource_range.base_array_layer = std::min(current_group_node_io_ptr->image_props.subresource_range.base_array_layer,
+                                                                                    						in_io.image_props.subresource_range.base_array_layer);
+                    current_group_node_io_ptr->image_props.subresource_range.base_mip_level = std::min(current_group_node_io_ptr->image_props.subresource_range.base_mip_level,
+                                                                                    						in_io.image_props.subresource_range.base_mip_level);
+                    current_group_node_io_ptr->image_props.subresource_range.layer_count 	= std::max(current_group_node_io_ptr->image_props.subresource_range.layer_count,
+                                                                                    						in_io.image_props.subresource_range.layer_count);
+                    current_group_node_io_ptr->image_props.subresource_range.level_count 	= std::max(current_group_node_io_ptr->image_props.subresource_range.level_count,
+                                                                                    						in_io.image_props.subresource_range.level_count);
+                    
+                    need_new_io = false;
+                }
+                
+                break;
             }
 
             case OpenGL::NodeIOType::Swapchain_Image:
@@ -94,7 +118,9 @@ void OpenGL::VKFrameGraph::GroupNode::add_io(const OpenGL::NodeIO& in_io,
                 /* Last graph node accessing the image has the ultimate take on swapchain image properties that subsequent group node should use.l */
                 current_group_node_io_ptr->swapchain_image_props = in_io.swapchain_image_props;
 
-                goto end;
+                need_new_io = false;
+
+                break;
             }
 
             default:
@@ -104,14 +130,17 @@ void OpenGL::VKFrameGraph::GroupNode::add_io(const OpenGL::NodeIO& in_io,
         }
     }
 
-    /* A new IO is needed. */
-    group_node_io_ptrs.push_back(
-        NodeIOUniquePtr(new NodeIO(in_io),
-                        std::default_delete<NodeIO>() )
-    );
+    if (need_new_io)
+    {
+        /* A new IO is needed. */
+        group_node_io_ptrs.push_back(
+            NodeIOUniquePtr(new NodeIO(in_io),
+                            std::default_delete<NodeIO>() )
+        );
 
-    vkgl_assert(node_io_ptr_to_group_node_io_ptr_map.find(&in_io) == node_io_ptr_to_group_node_io_ptr_map.end() );
-    node_io_ptr_to_group_node_io_ptr_map[&in_io] = group_node_io_ptrs.back().get();
+        vkgl_assert(node_io_ptr_to_group_node_io_ptr_map.find(&in_io) == node_io_ptr_to_group_node_io_ptr_map.end() );
+        node_io_ptr_to_group_node_io_ptr_map[&in_io] = group_node_io_ptrs.back().get();
+    }
 end:
     ;
 }
@@ -127,16 +156,22 @@ OpenGL::VKFrameGraph::VKFrameGraph(const OpenGL::IContextObjectManagers* in_fron
      m_frontend_ptr                    (in_frontend_ptr),
      m_swapchain_acquire_sem_ptr       (nullptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(in_backend_ptr != nullptr);
 }
 
 OpenGL::VKFrameGraph::~VKFrameGraph()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* Stub */
 }
 
 void OpenGL::VKFrameGraph::add_node(OpenGL::VKFrameGraphNodeUniquePtr in_node_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     std::lock_guard<std::mutex> lock(m_general_mutex);
 
     m_node_ptrs.push_back(
@@ -146,6 +181,8 @@ void OpenGL::VKFrameGraph::add_node(OpenGL::VKFrameGraphNodeUniquePtr in_node_pt
 
 bool OpenGL::VKFrameGraph::bake_barriers(const std::vector<GroupNodeUniquePtr>& in_group_nodes_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto const device_ptr            = m_backend_ptr->get_device_ptr();
     bool       result                = false;
     auto const swapchain_manager_ptr = m_backend_ptr->get_swapchain_manager_ptr();
@@ -279,9 +316,40 @@ bool OpenGL::VKFrameGraph::bake_barriers(const std::vector<GroupNodeUniquePtr>& 
 
                 case OpenGL::NodeIOType::Image:
                 {
-                    vkgl_not_implemented();
+                    /* Source access mask is determined by:
+                    *
+                    * 1) If there are incoming connections: ORing all access flags defined for connections where outputs of group nodes touching the image
+                    *    are connected to the processed input.
+                    * 2) If no incoming connections are defined: Assuming no access flags are required.
+                    */
+                    Anvil::AccessFlags src_access_mask = Anvil::AccessFlagBits::NONE;
 
-                    break;
+                    {
+                        for (const auto& current_incoming_connection_ptr : current_group_node_ptr->incoming_group_node_connections_ptr)
+                        {
+                            if (current_incoming_connection_ptr->n_dst_group_node_input == n_current_input)
+                            {
+                                const auto src_access = current_incoming_connection_ptr->src_group_node_io_ptr->image_props.access;
+
+                                vkgl_assert(current_incoming_connection_ptr->src_group_node_io_ptr->type == OpenGL::NodeIOType::Image);
+
+                                src_access_mask                                                     |= current_incoming_connection_ptr->src_group_node_io_ptr->image_props.access;
+                                current_group_node_ptr->group_node_pre_barriers.src_pipeline_stages |= current_incoming_connection_ptr->src_group_node_io_ptr->image_props.pipeline_stages;
+                            }
+                        }
+                    }
+
+                    /* Create & append the image memory barriers.. */
+                    process_image_node_input(current_group_node_ptr->group_node_pre_barriers.image_barriers,
+                                               current_input_ptr.get(),
+                                               current_group_node_ptr->queue_ptr,
+                                               src_access_mask,
+                                               current_group_node_ptr->group_node_pre_barriers.src_pipeline_stages,
+                                               current_group_node_ptr->uses_renderpass);
+
+                    current_group_node_ptr->group_node_pre_barriers.dst_pipeline_stages |= current_input_ptr->image_props.pipeline_stages;
+
+                    continue;
                 }
 
                 case OpenGL::NodeIOType::Swapchain_Image:
@@ -299,11 +367,6 @@ bool OpenGL::VKFrameGraph::bake_barriers(const std::vector<GroupNodeUniquePtr>& 
                     Anvil::AccessFlags ds_src_access_mask    = Anvil::AccessFlagBits::NONE;
 
                     {
-                        auto               color_image_ptr               = m_acquired_swapchain_reference_ptr->get_payload().swapchain_ptr->get_image(m_acquired_swapchain_image_index);
-                        auto               color_image_subresource_range = color_image_ptr->get_subresource_range                                            ();
-                        auto               ds_image_ptr                  = swapchain_manager_ptr->get_ds_image(m_acquired_swapchain_reference_ptr->get_payload().time_marker,
-                                                                                                               m_acquired_swapchain_image_index);
-                        auto               ds_image_subresource_range    = ds_image_ptr->get_subresource_range();
                         Anvil::AccessFlags src_access_mask               = Anvil::AccessFlagBits::NONE;
 
                         vkgl_assert(do_group_nodes_encapsulate_swapchain_acquire_present_command_stream(in_group_nodes_ptr) ); //< TODO: Protect against problem described for 2)
@@ -362,14 +425,39 @@ bool OpenGL::VKFrameGraph::bake_barriers(const std::vector<GroupNodeUniquePtr>& 
             {
                 case OpenGL::NodeIOType::Buffer:
                 {
-                    vkgl_not_implemented();
+                    std::vector<std::vector<Anvil::BufferBarrier>* > post_buffer_barrier_vec_ptrs_vec;
+                    Anvil::AccessFlags                               dst_access_mask                  = src_io.buffer_props.access;
+
+                    {
+                        process_buffer_node_input(dst_graph_node_pre_barriers.buffer_barriers,
+                                                  post_buffer_barrier_vec_ptrs_vec,
+                                                  &dst_io,
+                                                  current_group_node_ptr->queue_ptr,
+                                                  dst_access_mask,
+                                                  dst_graph_node_pre_barriers.src_pipeline_stages);
+
+                        dst_graph_node_pre_barriers.dst_pipeline_stages |= dst_io.buffer_props.pipeline_stages;
+                        dst_graph_node_pre_barriers.src_pipeline_stages |= src_io.buffer_props.pipeline_stages;
+                    }
 
                     continue;
                 }
 
                 case OpenGL::NodeIOType::Image:
                 {
-                    vkgl_not_implemented();
+                    const auto         dst_access_mask       = src_io.image_props.access;
+
+                    /* Create & append the image memory barriers.. */
+
+                    process_image_node_input(dst_graph_node_pre_barriers.image_barriers,
+                                                  &dst_io,
+                                                   current_group_node_ptr->queue_ptr,
+                                                   dst_access_mask,
+                                                   dst_graph_node_pre_barriers.src_pipeline_stages,
+                                                   current_group_node_ptr->uses_renderpass);
+
+                    dst_graph_node_pre_barriers.dst_pipeline_stages |= dst_io.image_props.pipeline_stages;
+                    dst_graph_node_pre_barriers.src_pipeline_stages |= src_io.image_props.pipeline_stages;
 
                     continue;
                 }
@@ -427,7 +515,10 @@ end:
 
 bool OpenGL::VKFrameGraph::bake_framebuffers(const std::vector<GroupNodeUniquePtr>& in_group_nodes_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto                           backend_fb_manager_ptr        = m_backend_ptr->get_framebuffer_manager_ptr();
+    auto                           backend_image_manager_ptr 	= m_backend_ptr->get_image_manager_ptr  	();
     auto                           backend_swapchain_manager_ptr = m_backend_ptr->get_swapchain_manager_ptr  ();
     auto                           device_ptr                    = m_backend_ptr->get_device_ptr             ();
     std::vector<Anvil::ImageView*> fb_image_view_ptrs_vec;
@@ -458,6 +549,12 @@ bool OpenGL::VKFrameGraph::bake_framebuffers(const std::vector<GroupNodeUniquePt
 
                 case OpenGL::NodeIOType::Image:
                 {
+                    const auto image_view_ptr = current_output_ptr->image_reference_ptr->get_payload().image_view_ptr;
+                    
+                    vkgl_assert(image_view_ptr != nullptr);
+                    
+                    fb_image_view_ptrs_vec.push_back(image_view_ptr);
+                    
                     vkgl_not_implemented();
 
                     continue;
@@ -516,6 +613,8 @@ end:
 bool OpenGL::VKFrameGraph::bake_renderpasses(const std::vector<GroupNodeUniquePtr>&                                                            in_group_nodes_ptr,
                                              const std::unordered_map<const GroupNode*, std::vector<GroupNodeToGroupNodeSquashedConnection> >* in_src_dst_group_node_connections_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     bool result                = false;
     auto rp_manager_ptr        = m_backend_ptr->get_renderpass_manager_ptr();
     auto swapchain_manager_ptr = m_backend_ptr->get_swapchain_manager_ptr ();
@@ -553,6 +652,7 @@ bool OpenGL::VKFrameGraph::bake_renderpasses(const std::vector<GroupNodeUniquePt
     {
         auto&                                current_group_node_ptr          (in_group_nodes_ptr.at(n_current_group_node) );
         Anvil::RenderPassCreateInfoUniquePtr rp_create_info_ptr              (new Anvil::RenderPassCreateInfo(m_backend_ptr->get_device_ptr() ));
+        Anvil::RenderPassAttachmentID        rp_image_attachment_id			(UINT32_MAX);
         Anvil::RenderPassAttachmentID        rp_swapchain_color_attachment_id(UINT32_MAX);
         Anvil::RenderPassAttachmentID        rp_swapchain_ds_attachment_id   (UINT32_MAX);
 
@@ -577,6 +677,10 @@ bool OpenGL::VKFrameGraph::bake_renderpasses(const std::vector<GroupNodeUniquePt
          */
 
         /* 1) */
+        Anvil::ImageLayout initial_image_layout            			= Anvil::ImageLayout::UNKNOWN;
+        bool               is_image_color_aspect_input_defined   = false;
+        bool               is_image_depth_aspect_input_defined   = false;
+        bool               is_image_stencil_aspect_input_defined = false;
         Anvil::ImageLayout initial_swapchain_color_layout            = Anvil::ImageLayout::UNKNOWN;
         Anvil::ImageLayout initial_swapchain_ds_layout               = Anvil::ImageLayout::UNKNOWN;
         bool               is_swapchain_color_aspect_input_defined   = false;
@@ -585,27 +689,66 @@ bool OpenGL::VKFrameGraph::bake_renderpasses(const std::vector<GroupNodeUniquePt
 
         for (const auto& current_input_ptr : current_group_node_ptr->input_ptrs)
         {
-            if (current_input_ptr->type != OpenGL::NodeIOType::Swapchain_Image)
+            switch (current_input_ptr->type)
             {
-                continue;
-            }
+                case OpenGL::NodeIOType::Buffer:
+                {
+                    /* Not a texture - get out. */
+                    continue;
+                }
+                
+            	case OpenGL::NodeIOType::Image:
+            	{
+                    vkgl_assert(current_input_ptr->image_props.aspects_touched != Anvil::ImageAspectFlagBits::NONE);
+        
+                    if ((current_input_ptr->image_props.aspects_touched & Anvil::ImageAspectFlagBits::COLOR_BIT) != 0)
+                    {
+                        is_image_color_aspect_input_defined  = true;
+                        initial_image_layout           = current_input_ptr->image_props.image_layout; 
+                    }
+        
+                    if (((current_input_ptr->image_props.aspects_touched & Anvil::ImageAspectFlagBits::DEPTH_BIT)   != 0) ||
+                        ((current_input_ptr->image_props.aspects_touched & Anvil::ImageAspectFlagBits::STENCIL_BIT) != 0))
+                    {
+                        vkgl_assert(initial_image_layout == Anvil::ImageLayout::UNKNOWN); //< todo? likely to fire if both depth and stencil aspects are touched.
+        
+                        is_image_depth_aspect_input_defined   |= ((current_input_ptr->image_props.aspects_touched & Anvil::ImageAspectFlagBits::DEPTH_BIT)   != 0);
+                        is_image_stencil_aspect_input_defined |= ((current_input_ptr->image_props.aspects_touched & Anvil::ImageAspectFlagBits::STENCIL_BIT) != 0);
+                        initial_image_layout                = current_input_ptr->image_props.image_layout;
+                    }
+                    
+                    continue;
+                }
+                
+            	case OpenGL::NodeIOType::Swapchain_Image:
+            	{
+                    vkgl_assert(current_input_ptr->swapchain_image_props.aspects_touched != Anvil::ImageAspectFlagBits::NONE);
+        
+                    if ((current_input_ptr->swapchain_image_props.aspects_touched & Anvil::ImageAspectFlagBits::COLOR_BIT) != 0)
+                    {
+                        is_swapchain_color_aspect_input_defined  = true;
+                        initial_swapchain_color_layout           = current_input_ptr->swapchain_image_props.color_image_layout; 
+                    }
+        
+                    if (((current_input_ptr->swapchain_image_props.aspects_touched & Anvil::ImageAspectFlagBits::DEPTH_BIT)   != 0) ||
+                        ((current_input_ptr->swapchain_image_props.aspects_touched & Anvil::ImageAspectFlagBits::STENCIL_BIT) != 0))
+                    {
+                        vkgl_assert(initial_swapchain_ds_layout == Anvil::ImageLayout::UNKNOWN); //< todo? likely to fire if both depth and stencil aspects are touched.
+        
+                        is_swapchain_depth_aspect_input_defined   |= ((current_input_ptr->swapchain_image_props.aspects_touched & Anvil::ImageAspectFlagBits::DEPTH_BIT)   != 0);
+                        is_swapchain_stencil_aspect_input_defined |= ((current_input_ptr->swapchain_image_props.aspects_touched & Anvil::ImageAspectFlagBits::STENCIL_BIT) != 0);
+                        initial_swapchain_ds_layout                = current_input_ptr->swapchain_image_props.ds_image_layout;
+                    }
+                    
+                    continue;
+                }
+                
+                default:
+                {
+                    vkgl_assert_fail();
 
-            vkgl_assert(current_input_ptr->swapchain_image_props.aspects_touched != Anvil::ImageAspectFlagBits::NONE);
-
-            if ((current_input_ptr->swapchain_image_props.aspects_touched & Anvil::ImageAspectFlagBits::COLOR_BIT) != 0)
-            {
-                is_swapchain_color_aspect_input_defined  = true;
-                initial_swapchain_color_layout           = current_input_ptr->swapchain_image_props.color_image_layout; 
-            }
-
-            if (((current_input_ptr->swapchain_image_props.aspects_touched & Anvil::ImageAspectFlagBits::DEPTH_BIT)   != 0) ||
-                ((current_input_ptr->swapchain_image_props.aspects_touched & Anvil::ImageAspectFlagBits::STENCIL_BIT) != 0))
-            {
-                vkgl_assert(initial_swapchain_ds_layout == Anvil::ImageLayout::UNKNOWN); //< todo? likely to fire if both depth and stencil aspects are touched.
-
-                is_swapchain_depth_aspect_input_defined   |= ((current_input_ptr->swapchain_image_props.aspects_touched & Anvil::ImageAspectFlagBits::DEPTH_BIT)   != 0);
-                is_swapchain_stencil_aspect_input_defined |= ((current_input_ptr->swapchain_image_props.aspects_touched & Anvil::ImageAspectFlagBits::STENCIL_BIT) != 0);
-                initial_swapchain_ds_layout                = current_input_ptr->swapchain_image_props.ds_image_layout;
+                    continue;
+                }
             }
         }
 
@@ -621,7 +764,48 @@ bool OpenGL::VKFrameGraph::bake_renderpasses(const std::vector<GroupNodeUniquePt
 
                 case OpenGL::NodeIOType::Image:
                 {
-                    vkgl_not_implemented();
+                    auto        image_ptr             	= current_output_ptr->image_reference_ptr->get_payload().image_ptr;
+                    auto        image_create_info_ptr    = (image_ptr != nullptr) ? (image_ptr->get_create_info_ptr() )
+                                                                                        : nullptr;
+
+                    vkgl_assert(image_create_info_ptr      != nullptr);
+                    vkgl_assert(rp_image_attachment_id == UINT32_MAX);
+
+                    const bool is_image_color_aspect_output_defined   = (current_output_ptr->image_props.aspects_touched & Anvil::ImageAspectFlagBits::COLOR_BIT)   != 0;
+                    const bool is_image_depth_aspect_output_defined   = (current_output_ptr->image_props.aspects_touched & Anvil::ImageAspectFlagBits::DEPTH_BIT)   != 0;
+                    const bool is_image_stencil_aspect_output_defined = (current_output_ptr->image_props.aspects_touched & Anvil::ImageAspectFlagBits::STENCIL_BIT) != 0;
+
+                    rp_create_info_ptr->add_color_attachment(image_create_info_ptr->get_format      (),
+                                                             image_create_info_ptr->get_sample_count(),
+                                                             (is_image_color_aspect_input_defined)  ? Anvil::AttachmentLoadOp::LOAD
+                                                                                                        : Anvil::AttachmentLoadOp::DONT_CARE,
+                                                             (is_image_color_aspect_output_defined) ? Anvil::AttachmentStoreOp::STORE
+                                                                                                        : Anvil::AttachmentStoreOp::DONT_CARE,
+                                                             initial_image_layout,
+                                                             current_output_ptr->image_props.image_layout,
+                                                             false, /* in_may_alias */
+                                                            &rp_image_attachment_id);
+
+                    if (is_image_depth_aspect_input_defined    ||
+                        is_image_depth_aspect_output_defined   ||
+                        is_image_stencil_aspect_input_defined  ||
+                        is_image_stencil_aspect_output_defined)
+                    {
+                        rp_create_info_ptr->add_depth_stencil_attachment(image_create_info_ptr->get_format      (),
+                                                                         image_create_info_ptr->get_sample_count(),
+                                                                         (is_image_depth_aspect_input_defined)    ? Anvil::AttachmentLoadOp::LOAD
+                                                                                                                      : Anvil::AttachmentLoadOp::DONT_CARE,
+                                                                         (is_image_depth_aspect_output_defined)   ? Anvil::AttachmentStoreOp::STORE
+                                                                                                                      : Anvil::AttachmentStoreOp::DONT_CARE,
+                                                                         (is_image_stencil_aspect_input_defined)  ? Anvil::AttachmentLoadOp::LOAD
+                                                                                                                      : Anvil::AttachmentLoadOp::DONT_CARE,
+                                                                         (is_image_stencil_aspect_output_defined) ? Anvil::AttachmentStoreOp::STORE
+                                                                                                                      : Anvil::AttachmentStoreOp::DONT_CARE,
+                                                                         initial_image_layout,
+                                                                         current_output_ptr->image_props.image_layout,
+                                                                         false, /* in_may_alias */
+                                                                        &rp_image_attachment_id);
+                    }
 
                     continue;
                 }
@@ -722,7 +906,29 @@ bool OpenGL::VKFrameGraph::bake_renderpasses(const std::vector<GroupNodeUniquePt
 
                     case OpenGL::NodeIOType::Image:
                     {
-                        vkgl_not_implemented();
+                        if ((current_output.image_props.aspects_touched & Anvil::ImageAspectFlagBits::COLOR_BIT) != 0)
+                        {
+                            vkgl_assert(current_output.image_props.image_layout != Anvil::ImageLayout::UNDEFINED &&
+                                        current_output.image_props.image_layout != Anvil::ImageLayout::UNKNOWN);
+                            vkgl_assert(current_output.image_props.fs_output_location != UINT32_MAX);
+
+                            rp_create_info_ptr->add_subpass_color_attachment(subpass_id,
+                                                                             current_output.image_props.image_layout,
+                                                                             rp_image_attachment_id,
+                                                                             current_output.image_props.fs_output_location,
+                                                                             nullptr); /* in_opt_attachment_resolve_id_ptr */
+                        }
+
+                        if ((current_output.image_props.aspects_touched & Anvil::ImageAspectFlagBits::DEPTH_BIT)   != 0 ||
+                            (current_output.image_props.aspects_touched & Anvil::ImageAspectFlagBits::STENCIL_BIT) != 0)
+                        {
+                            vkgl_assert(current_output.image_props.image_layout != Anvil::ImageLayout::UNDEFINED &&
+                                        current_output.image_props.image_layout != Anvil::ImageLayout::UNKNOWN);
+
+                            rp_create_info_ptr->add_subpass_depth_stencil_attachment(subpass_id,
+                                                                                     current_output.image_props.image_layout,
+                                                                                     rp_image_attachment_id);
+                        }
 
                         continue;
                     }
@@ -797,7 +1003,10 @@ bool OpenGL::VKFrameGraph::bake_renderpasses(const std::vector<GroupNodeUniquePt
 
                     case OpenGL::NodeIOType::Image:
                     {
-                        vkgl_not_implemented();
+                        new_dep.dst_access_mask     = dst_graph_node_input.image_props.access;
+                        new_dep.dst_pipeline_stages = dst_graph_node_input.image_props.pipeline_stages;
+                        new_dep.src_access_mask     = src_graph_node_output.image_props.access;
+                        new_dep.src_pipeline_stages = src_graph_node_output.image_props.pipeline_stages;
 
                         continue;
                     }
@@ -878,7 +1087,10 @@ bool OpenGL::VKFrameGraph::bake_renderpasses(const std::vector<GroupNodeUniquePt
 
                     case OpenGL::NodeIOType::Image:
                     {
-                        vkgl_not_implemented();
+                        new_input_dep.dst_access_mask     = dst_group_node_io_ptr->image_props.access;
+                        new_input_dep.dst_pipeline_stages = dst_group_node_io_ptr->image_props.pipeline_stages;
+                        new_input_dep.src_access_mask     = src_group_node_io_ptr->image_props.access;
+                        new_input_dep.src_pipeline_stages = src_group_node_io_ptr->image_props.pipeline_stages;
 
                         continue;
                     }
@@ -999,6 +1211,8 @@ bool OpenGL::VKFrameGraph::coalesce_to_group_nodes(const std::vector<VKFrameGrap
                                                    std::vector<GroupNodeUniquePtr>*                                                             out_group_nodes_ptr,
                                                    std::unordered_map<const GroupNode*, std::vector<GroupNodeToGroupNodeSquashedConnection > >* out_src_dst_group_node_connections_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto current_group_node_ptr = GroupNodeUniquePtr(nullptr,
                                                      std::default_delete<GroupNode>() );
     bool result                 = false;
@@ -1289,6 +1503,60 @@ bool OpenGL::VKFrameGraph::coalesce_to_group_nodes(const std::vector<VKFrameGrap
                             break;
                         }
 
+                        case OpenGL::NodeIOType::Image:
+                        {
+                            auto object_ptr_map_iterator = object_ptr_to_last_output_data_map.find(current_group_node_input_ptr->image_reference_ptr->get_payload().image_ptr);
+
+                            if (object_ptr_map_iterator                        != object_ptr_to_last_output_data_map.end() &&
+                                object_ptr_map_iterator->second.group_node_ptr != current_group_node_ptr.get            () )
+                            {
+                                /* Object reuse - add a connection */
+                                auto dst_group_node_ptr    = current_group_node_ptr.get();
+                                auto src_group_node_ptr    = object_ptr_map_iterator->second.group_node_ptr;
+                                auto src_group_node_io_ptr = object_ptr_map_iterator->second.group_node_output_ptr;
+                                auto new_connection_ptr    = GroupNodeConnectionInfoUniquePtr(nullptr,
+                                                                                              std::default_delete<GroupNodeConnectionInfo>() );
+
+                                {
+                                    auto new_connection_ptr    = GroupNodeConnectionInfoUniquePtr(nullptr,
+                                                                                                  std::default_delete<GroupNodeConnectionInfo>() );
+
+                                    new_connection_ptr.reset(
+                                        new GroupNodeConnectionInfo(src_group_node_ptr,
+                                                                    src_group_node_io_ptr,
+                                                                    n_current_group_node,
+                                                                    n_dst_group_node_input)
+                                    );
+
+                                    dst_group_node_ptr->incoming_group_node_connections_ptr.push_back(std::move(new_connection_ptr) );
+                                }
+
+                                /* Also cache the general src->dst node connection. */
+                                {
+                                    auto conn_iterator = std::find((*out_src_dst_group_node_connections_ptr)[src_group_node_ptr].begin(),
+                                                                   (*out_src_dst_group_node_connections_ptr)[src_group_node_ptr].end(),
+                                                                   dst_group_node_ptr);
+
+                                    if (conn_iterator == (*out_src_dst_group_node_connections_ptr)[src_group_node_ptr].end() )
+                                    {
+                                        (*out_src_dst_group_node_connections_ptr)[src_group_node_ptr].push_back(
+                                            GroupNodeToGroupNodeSquashedConnection(current_group_node_input_ptr->image_props.pipeline_stages,
+                                                                                   current_group_node_input_ptr->image_props.access,
+                                                                                   dst_group_node_ptr,
+                                                                                   src_group_node_io_ptr->image_props.pipeline_stages,
+                                                                                   src_group_node_io_ptr->image_props.access)
+                                        );
+                                    }
+                                    else
+                                    {
+                                        conn_iterator->dst_pipeline_stages |= current_group_node_input_ptr->image_props.pipeline_stages;
+                                    }
+                                }
+                            }
+
+                            break;
+                        }
+
                         case OpenGL::NodeIOType::Swapchain_Image:
                         {
                             if (last_swapchain_output_data.group_node_ptr != nullptr                      &&
@@ -1376,6 +1644,27 @@ bool OpenGL::VKFrameGraph::coalesce_to_group_nodes(const std::vector<VKFrameGrap
                         break;
                     }
 
+                    case OpenGL::NodeIOType::Image:
+                    {
+                        /* Update the map */
+                        #ifdef _DEBUG
+                        {
+                            auto map_iterator = object_ptr_to_last_output_data_map.find(current_group_node_output_ptr->image_reference_ptr->get_payload().image_ptr);
+
+                            if (map_iterator != object_ptr_to_last_output_data_map.end() )
+                            {
+                                /* Sanity check: Only one output pointing to a specific image instance should be assigned per node */
+                                vkgl_assert(map_iterator->second.group_node_ptr != current_group_node_ptr.get() );
+                            }
+                        }
+                        #endif
+
+                        object_ptr_to_last_output_data_map[current_group_node_output_ptr->image_reference_ptr->get_payload().image_ptr] = OutputData(current_group_node_ptr.get       (),
+                                                                                                                                                       current_group_node_output_ptr.get() );
+
+                        break;
+                    }
+
                     case OpenGL::NodeIOType::Swapchain_Image:
                     {
                         /* Update the user data object */
@@ -1432,6 +1721,7 @@ bool OpenGL::VKFrameGraph::coalesce_to_group_nodes(const std::vector<VKFrameGrap
         } OutputData;
 
         std::unordered_map<void*, OutputData> last_buffer_output_data_map;
+        std::unordered_map<void*, OutputData> last_image_output_data_map;
         OutputData                            last_swapchain_image_output_data = {UINT32_MAX, UINT32_MAX};
 
         for (uint32_t n_current_graph_node = 0;
@@ -1473,7 +1763,20 @@ bool OpenGL::VKFrameGraph::coalesce_to_group_nodes(const std::vector<VKFrameGrap
 
                     case OpenGL::NodeIOType::Image:
                     {
-                        vkgl_not_implemented();
+                        auto last_image_output_iterator = last_image_output_data_map.find(current_input.image_reference_ptr->get_payload().image_ptr);
+
+                        if (last_image_output_iterator == last_image_output_data_map.end() )
+                        {
+                            /* This input is fed with data using group node-level connection */
+                            break;
+                        }
+
+                        current_group_node_raw_ptr->intra_graph_node_connections.push_back(
+                            IntraGraphNodeConnectionInfo(last_image_output_iterator->second.n_node,
+                                                         last_image_output_iterator->second.n_output,
+                                                         n_current_graph_node,
+                                                         n_input)
+                        );
 
                         continue;
                     }
@@ -1524,9 +1827,10 @@ bool OpenGL::VKFrameGraph::coalesce_to_group_nodes(const std::vector<VKFrameGrap
 
                     case OpenGL::NodeIOType::Image:
                     {
-                        vkgl_not_implemented();
+                        last_image_output_data_map[current_output.image_reference_ptr->get_payload().image_ptr] = OutputData(n_current_graph_node,
+                                                                                                                                n_output);
 
-                        goto end;
+                        continue;
                     }
 
                     case OpenGL::NodeIOType::Swapchain_Image:
@@ -1576,7 +1880,11 @@ bool OpenGL::VKFrameGraph::coalesce_to_group_nodes(const std::vector<VKFrameGrap
 
                 case OpenGL::NodeIOType::Image:
                 {
-                    vkgl_not_implemented();
+                    auto image_ptr = current_output_ptr->image_reference_ptr->get_payload().image_ptr;
+
+                    current_group_node_ptr->framebuffer_size[0]  = std::max(current_group_node_ptr->framebuffer_size[0],  image_ptr->get_create_info_ptr()->get_base_mip_width () );
+                    current_group_node_ptr->framebuffer_size[1]  = std::max(current_group_node_ptr->framebuffer_size[1],  image_ptr->get_create_info_ptr()->get_base_mip_height() );
+                    current_group_node_ptr->framebuffer_n_layers = std::max(current_group_node_ptr->framebuffer_n_layers, image_ptr->get_create_info_ptr()->get_n_layers() );
 
                     continue;
                 }
@@ -1608,6 +1916,8 @@ end:
 OpenGL::VKFrameGraphUniquePtr OpenGL::VKFrameGraph::create(const OpenGL::IContextObjectManagers* in_frontend_ptr,
                                                            const OpenGL::IBackend*               in_backend_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     OpenGL::VKFrameGraphUniquePtr result_ptr(nullptr,
                                              [](OpenGL::VKFrameGraph* in_ptr){ delete in_ptr; });
 
@@ -1630,6 +1940,8 @@ OpenGL::VKFrameGraphUniquePtr OpenGL::VKFrameGraph::create(const OpenGL::IContex
 
 bool OpenGL::VKFrameGraph::do_group_nodes_encapsulate_swapchain_acquire_present_command_stream(const std::vector<GroupNodeUniquePtr>& in_group_nodes_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     bool     is_acquire_node_first = false;
     bool     is_present_node_last  = false;
     uint32_t n_acquire_nodes       = 0;
@@ -1678,6 +1990,8 @@ bool OpenGL::VKFrameGraph::do_group_nodes_encapsulate_swapchain_acquire_present_
 void OpenGL::VKFrameGraph::execute(const bool&  in_block_until_finished,
                                    VKGL::Fence* in_opt_fence_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* NOTE: This function must NEVER be called from app's rendering thread. */
     std::lock_guard<std::mutex> execute_lock(m_execute_mutex);
 
@@ -1865,8 +2179,8 @@ void OpenGL::VKFrameGraph::execute(const bool&  in_block_until_finished,
             ActiveSubmission(std::move(wait_fence_ptr),
                              group_node_ptrs,
                              node_ptrs,
-                             std::move(command_buffer_submissions),
-                             std::move(sem_ptrs),
+                             command_buffer_submissions,
+                             sem_ptrs,
                              in_opt_fence_ptr)
         );
     }
@@ -1879,6 +2193,8 @@ end:
 
 bool OpenGL::VKFrameGraph::execute_cpu_prepass(const std::vector<VKFrameGraphNodeUniquePtr>& in_node_ptrs)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     for (auto& current_node_ptr : in_node_ptrs)
     {
         if (current_node_ptr->requires_cpu_prepass() )
@@ -1892,6 +2208,8 @@ bool OpenGL::VKFrameGraph::execute_cpu_prepass(const std::vector<VKFrameGraphNod
 
 uint32_t OpenGL::VKFrameGraph::get_acquired_swapchain_image_index() const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_acquired_swapchain_image_index != UINT32_MAX);
 
     return m_acquired_swapchain_image_index;
@@ -1899,6 +2217,8 @@ uint32_t OpenGL::VKFrameGraph::get_acquired_swapchain_image_index() const
 
 OpenGL::VKSwapchainReference* OpenGL::VKFrameGraph::get_acquired_swapchain_reference_raw_ptr() const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_acquired_swapchain_reference_ptr != nullptr);
 
     return m_acquired_swapchain_reference_ptr;
@@ -1906,6 +2226,8 @@ OpenGL::VKSwapchainReference* OpenGL::VKFrameGraph::get_acquired_swapchain_refer
 
 bool OpenGL::VKFrameGraph::get_bound_dynamic_blend_color_state(float* out_result_vec4_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     if (m_current_cmd_buffer_dynamic_state.is_dynamic_blend_color_state_bound)
     {
         memcpy(out_result_vec4_ptr,
@@ -1918,6 +2240,8 @@ bool OpenGL::VKFrameGraph::get_bound_dynamic_blend_color_state(float* out_result
 
 bool OpenGL::VKFrameGraph::get_bound_dynamic_line_width_state(float* out_result_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     if (m_current_cmd_buffer_dynamic_state.is_dynamic_line_width_state_bound)
     {
         *out_result_ptr = m_current_cmd_buffer_dynamic_state.bound_dynamic_line_width_state;
@@ -1928,6 +2252,8 @@ bool OpenGL::VKFrameGraph::get_bound_dynamic_line_width_state(float* out_result_
 
 bool OpenGL::VKFrameGraph::get_bound_dynamic_scissor_state(VkRect2D* out_result_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     if (m_current_cmd_buffer_dynamic_state.is_dynamic_scissor_state_bound)
     {
         *out_result_ptr = m_current_cmd_buffer_dynamic_state.bound_dynamic_scissor_state;
@@ -1938,6 +2264,8 @@ bool OpenGL::VKFrameGraph::get_bound_dynamic_scissor_state(VkRect2D* out_result_
 
 bool OpenGL::VKFrameGraph::get_bound_dynamic_stencil_compare_mask_back_state(int32_t* out_result_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     if (m_current_cmd_buffer_dynamic_state.is_dynamic_stencil_compare_mask_back_state_bound)
     {
         *out_result_ptr = m_current_cmd_buffer_dynamic_state.bound_dynamic_stencil_compare_mask_back_state;
@@ -1948,6 +2276,8 @@ bool OpenGL::VKFrameGraph::get_bound_dynamic_stencil_compare_mask_back_state(int
 
 bool OpenGL::VKFrameGraph::get_bound_dynamic_stencil_compare_mask_front_state(int32_t* out_result_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     if (m_current_cmd_buffer_dynamic_state.is_dynamic_stencil_compare_mask_front_state_bound)
     {
         *out_result_ptr = m_current_cmd_buffer_dynamic_state.bound_dynamic_stencil_compare_mask_front_state;
@@ -1958,6 +2288,8 @@ bool OpenGL::VKFrameGraph::get_bound_dynamic_stencil_compare_mask_front_state(in
 
 bool OpenGL::VKFrameGraph::get_bound_dynamic_stencil_reference_back_state(int32_t* out_result_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     if (m_current_cmd_buffer_dynamic_state.is_dynamic_stencil_reference_back_state_bound)
     {
         *out_result_ptr = m_current_cmd_buffer_dynamic_state.bound_dynamic_stencil_reference_back_state;
@@ -1968,6 +2300,8 @@ bool OpenGL::VKFrameGraph::get_bound_dynamic_stencil_reference_back_state(int32_
 
 bool OpenGL::VKFrameGraph::get_bound_dynamic_stencil_reference_front_state(int32_t* out_result_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     if (m_current_cmd_buffer_dynamic_state.is_dynamic_stencil_reference_front_state_bound)
     {
         *out_result_ptr = m_current_cmd_buffer_dynamic_state.bound_dynamic_stencil_reference_front_state;
@@ -1978,6 +2312,8 @@ bool OpenGL::VKFrameGraph::get_bound_dynamic_stencil_reference_front_state(int32
 
 bool OpenGL::VKFrameGraph::get_bound_dynamic_stencil_write_mask_back_state(int32_t* out_result_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     if (m_current_cmd_buffer_dynamic_state.is_dynamic_stencil_write_mask_back_state_bound)
     {
         *out_result_ptr = m_current_cmd_buffer_dynamic_state.bound_dynamic_stencil_write_mask_back_state;
@@ -1988,6 +2324,8 @@ bool OpenGL::VKFrameGraph::get_bound_dynamic_stencil_write_mask_back_state(int32
 
 bool OpenGL::VKFrameGraph::get_bound_dynamic_stencil_write_mask_front_state(int32_t* out_result_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     if (m_current_cmd_buffer_dynamic_state.is_dynamic_stencil_write_mask_front_state_bound)
     {
         *out_result_ptr = m_current_cmd_buffer_dynamic_state.bound_dynamic_stencil_write_mask_front_state;
@@ -1998,6 +2336,8 @@ bool OpenGL::VKFrameGraph::get_bound_dynamic_stencil_write_mask_front_state(int3
 
 bool OpenGL::VKFrameGraph::get_bound_dynamic_viewport_state(VkViewport* out_result_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     if (m_current_cmd_buffer_dynamic_state.is_dynamic_viewport_state_bound)
     {
         *out_result_ptr = m_current_cmd_buffer_dynamic_state.bound_dynamic_viewport_state;
@@ -2008,6 +2348,8 @@ bool OpenGL::VKFrameGraph::get_bound_dynamic_viewport_state(VkViewport* out_resu
 
 bool OpenGL::VKFrameGraph::get_bound_pipeline_id(Anvil::PipelineID* out_result_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     if (m_current_cmd_buffer_dynamic_state.is_gfx_pipeline_id_bound)
     {
         *out_result_ptr = m_current_cmd_buffer_dynamic_state.bound_gfx_pipeline_id;
@@ -2018,6 +2360,8 @@ bool OpenGL::VKFrameGraph::get_bound_pipeline_id(Anvil::PipelineID* out_result_p
 
 Anvil::PipelineID OpenGL::VKFrameGraph::get_pipeline_id(const OpenGL::DrawCallMode& in_draw_call_mode)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto                                           backend_gfx_pipeline_manager_ptr    = m_backend_ptr->get_gfx_pipeline_manager_ptr();
     const OpenGL::GLContextStateBindingReferences* node_context_state_binding_refs_ptr = nullptr;
     const OpenGL::ContextState*                    node_context_state_ptr              = nullptr;
@@ -2044,6 +2388,8 @@ end:
 
 Anvil::Semaphore* OpenGL::VKFrameGraph::get_swapchain_image_acquired_sem() const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_swapchain_acquire_sem_ptr != nullptr);
 
     return m_swapchain_acquire_sem_ptr;
@@ -2053,6 +2399,8 @@ bool OpenGL::VKFrameGraph::get_wait_sems(uint32_t*                         out_n
                                          Anvil::Semaphore***               out_wait_sems_ptr_ptr_ptr,
                                          const Anvil::PipelineStageFlags** out_wait_sem_stage_masks_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const uint32_t n_wait_sems = static_cast<uint32_t>(m_wait_sem_vec_for_current_cpu_node.size() );
 
     *out_n_wait_sems_ptr          = n_wait_sems;
@@ -2064,6 +2412,8 @@ bool OpenGL::VKFrameGraph::get_wait_sems(uint32_t*                         out_n
 
 bool OpenGL::VKFrameGraph::init()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     bool result = false;
 
     if (!init_swapchain_data() )
@@ -2087,6 +2437,8 @@ end:
 
 bool OpenGL::VKFrameGraph::init_queue_rings()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto device_ptr = m_backend_ptr->get_device_ptr();
     bool result     = false;
 
@@ -2135,6 +2487,8 @@ end:
 
 bool OpenGL::VKFrameGraph::init_swapchain_data()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     bool result                = false;
     auto swapchain_manager_ptr = m_backend_ptr->get_swapchain_manager_ptr();
 
@@ -2152,6 +2506,8 @@ end:
 
 bool OpenGL::VKFrameGraph::inject_swapchain_acquire_nodes(std::vector<VKFrameGraphNodeUniquePtr>& inout_node_ptrs)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     bool     is_swapchain_image_acquired = (m_acquired_swapchain_image_index != UINT32_MAX);
     uint32_t n_nodes                     = static_cast<uint32_t>(inout_node_ptrs.size() );
     bool     result                      = false;
@@ -2169,6 +2525,17 @@ bool OpenGL::VKFrameGraph::inject_swapchain_acquire_nodes(std::vector<VKFrameGra
 
         if (current_node_type == FrameGraphNodeType::Present_Swapchain_Image)
         {
+            if (!is_swapchain_image_acquired)
+            {
+                auto new_acquire_node_ptr = OpenGL::VKNodes::AcquireSwapchainImage::create(m_frontend_ptr,
+                                                                                           m_backend_ptr);
+
+                inout_node_ptrs.insert(inout_node_ptrs.begin() + n_current_node,
+                                       std::move(new_acquire_node_ptr) );
+
+                is_swapchain_image_acquired = true;
+            }
+            
             vkgl_assert(is_swapchain_image_acquired);
 
             is_swapchain_image_acquired = false;
@@ -2218,16 +2585,22 @@ bool OpenGL::VKFrameGraph::inject_swapchain_acquire_nodes(std::vector<VKFrameGra
 
 void OpenGL::VKFrameGraph::on_buffer_deleted(Anvil::Buffer* in_buffer_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKFrameGraph::on_image_deleted(Anvil::Image* in_image_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKFrameGraph::on_swapchain_recreated()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     if (!init_swapchain_data() )
     {
         vkgl_assert_fail();
@@ -2241,6 +2614,8 @@ void OpenGL::VKFrameGraph::process_buffer_node_input(std::vector<Anvil::BufferBa
                                                      const Anvil::AccessFlags&                         in_access_mask,
                                                      Anvil::PipelineStageFlags&                        inout_src_pipeline_stages)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto buffer_ptr = in_input_ptr->buffer_reference_ptr->get_payload().buffer_ptr;
 
     if (m_buffer_data.find(buffer_ptr) == m_buffer_data.end() )
@@ -2296,6 +2671,107 @@ void OpenGL::VKFrameGraph::process_buffer_node_input(std::vector<Anvil::BufferBa
     }
 }
 
+void OpenGL::VKFrameGraph::process_image_node_input(std::vector<Anvil::ImageBarrier>& inout_image_barriers,
+                                                              const NodeIO*                     in_input_ptr,
+                                                              const Anvil::Queue*               in_opt_queue_ptr,
+                                                              const Anvil::AccessFlags&         in_access_masks,
+                                                              Anvil::PipelineStageFlags&        inout_src_pipeline_stages,
+                                                              const bool&                       in_parent_group_node_uses_renderpass)
+{
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+    /* TODO: In case of renderpass group nodes, layout transitions incurred by barriers generated by this function should actually be moved over
+     *       to renderpasses.
+     */
+    auto image_ptr = in_input_ptr->image_reference_ptr->get_payload().image_ptr;
+
+    if (m_image_data.find(image_ptr) == m_image_data.end() )
+    {
+        m_image_data[image_ptr] = ImageInfo();
+    }
+
+    auto& current_image_props = m_image_data.at(image_ptr);
+
+    Anvil::ImageLayout src_image_layout = current_image_props.aspect_layout;
+    Anvil::ImageLayout dst_image_layout = in_input_ptr->image_props.image_layout;
+
+    bool       image_layouts_match     = dst_image_layout == src_image_layout;
+    const bool queue_fams_match              = (in_opt_queue_ptr != nullptr) ? (in_opt_queue_ptr->get_queue_family_index() == current_image_props.owning_queue_family_index)
+                                                                             : true; //< presentation engine does not require ownership transfer prior to presenting.
+
+    if (!image_layouts_match ||
+        !queue_fams_match)
+    {
+        /* NOTE: current_image_props.owning_queue_family_index may be UINT32_MAX if the swapchain image has never been used. In this case, we acquire ownership
+         *       of the image by specifying the same dst & src queue fam in the image barrier.
+         */
+        const auto dst_queue_family_index = (queue_fams_match) ? VK_QUEUE_FAMILY_IGNORED
+                                                               : in_opt_queue_ptr->get_queue_family_index();
+        const auto src_queue_family_index = (queue_fams_match) ? VK_QUEUE_FAMILY_IGNORED
+                                                               : (current_image_props.owning_queue_family_index == UINT32_MAX) ? dst_queue_family_index
+                                                                                                                                         : current_image_props.owning_queue_family_index;
+
+        if ((((in_input_ptr->image_props.aspects_touched & Anvil::ImageAspectFlagBits::COLOR_BIT)   != 0)  ||
+             ((in_input_ptr->image_props.aspects_touched & Anvil::ImageAspectFlagBits::DEPTH_BIT)   != 0)  ||
+             ((in_input_ptr->image_props.aspects_touched & Anvil::ImageAspectFlagBits::STENCIL_BIT) != 0)) )
+        {
+            const bool layouts_match      = image_layouts_match;
+
+            if ((image_ptr != nullptr) &&
+                (!layouts_match        ||
+                 !queue_fams_match) )
+            {
+                const auto old_layout          = src_image_layout;
+                const auto new_layout          = dst_image_layout;
+                auto       src_access_mask     = in_access_masks;
+                const auto dst_access_mask     = in_input_ptr->image_props.access;
+                auto       subresource_range   = in_input_ptr->image_props.subresource_range;
+
+                vkgl_assert(subresource_range.aspect_mask == in_input_ptr->image_props.aspects_touched);
+                vkgl_assert(((subresource_range.aspect_mask & Anvil::ImageAspectFlagBits::COLOR_BIT) != 0) == image_ptr->has_aspects(Anvil::ImageAspectFlagBits::COLOR_BIT) );
+                vkgl_assert(((subresource_range.aspect_mask & Anvil::ImageAspectFlagBits::DEPTH_BIT) != 0) == image_ptr->has_aspects(Anvil::ImageAspectFlagBits::DEPTH_BIT) 	||
+                			((subresource_range.aspect_mask & Anvil::ImageAspectFlagBits::STENCIL_BIT) != 0) == image_ptr->has_aspects(Anvil::ImageAspectFlagBits::STENCIL_BIT) );
+
+                if (src_access_mask == Anvil::AccessFlagBits::NONE)
+                {
+                    src_access_mask            = dst_access_mask;
+                    inout_src_pipeline_stages |= in_input_ptr->image_props.pipeline_stages;
+                }
+
+                /* Cache the image memory barrier */
+                {
+                    auto image_barrier = Anvil::ImageBarrier(src_access_mask,
+                                                             dst_access_mask,
+                                                             old_layout,
+                                                             new_layout,
+                                                             src_queue_family_index,
+                                                             dst_queue_family_index,
+                                                             image_ptr,
+                                                             subresource_range);
+
+                    inout_image_barriers.push_back(std::move(image_barrier) );
+                }
+
+                vkgl_assert(src_queue_family_index == dst_queue_family_index); //< todo: missing release barrier support.
+
+                /* Update local swapchain image state */
+                if (in_opt_queue_ptr != nullptr)
+                {
+                    current_image_props.owning_queue_family_index = in_opt_queue_ptr->get_queue_family_index();
+                }
+
+                {
+                    current_image_props.aspect_layout = new_layout;
+                }
+            }
+        }
+        else
+        {
+        	vkgl_assert_fail();
+        }
+    }
+}
+
 void OpenGL::VKFrameGraph::process_swapchain_image_node_input(std::vector<Anvil::ImageBarrier>& inout_image_barriers,
                                                               const NodeIO*                     in_input_ptr,
                                                               const Anvil::Queue*               in_opt_queue_ptr,
@@ -2304,6 +2780,8 @@ void OpenGL::VKFrameGraph::process_swapchain_image_node_input(std::vector<Anvil:
                                                               Anvil::PipelineStageFlags&        inout_src_pipeline_stages,
                                                               const bool&                       in_parent_group_node_uses_renderpass)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* TODO: In case of renderpass group nodes, layout transitions incurred by barriers generated by this function should actually be moved over
      *       to renderpasses.
      */
@@ -2417,6 +2895,8 @@ bool OpenGL::VKFrameGraph::record_command_buffers(const std::vector<GroupNodeUni
                                                   std::vector<CommandBufferSubmissionUniquePtr>*                                                    out_cmd_buffer_submissions_ptr,
                                                   std::vector<Anvil::SemaphoreUniquePtr>&                                                           inout_sem_ptr_vec)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto const device_ptr = m_backend_ptr->get_device_ptr();
     bool       result     = false;
 
@@ -2490,7 +2970,10 @@ bool OpenGL::VKFrameGraph::record_command_buffers(const std::vector<GroupNodeUni
 
                 case OpenGL::NodeIOType::Image:
                 {
-                    vkgl_not_implemented();
+                    if (current_input_ptr->opt_post_sync_semaphore_ptr != nullptr)
+                    {
+                        wait_dst_stages = current_input_ptr->image_props.pipeline_stages;
+                    }
 
                     break;
                 }
@@ -2709,6 +3192,8 @@ end:
 
 void OpenGL::VKFrameGraph::set_acquired_swapchain_reference_raw_ptr(OpenGL::VKSwapchainReference* in_swapchain_reference_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     if (in_swapchain_reference_ptr == nullptr)
     {
         anvil_assert(m_acquired_swapchain_reference_ptr != nullptr);
@@ -2723,6 +3208,8 @@ void OpenGL::VKFrameGraph::set_acquired_swapchain_reference_raw_ptr(OpenGL::VKSw
 
 void OpenGL::VKFrameGraph::set_acquired_swapchain_image_index(const uint32_t& in_index)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* Sanity check: Protect against cases where acquire->present->acquire->present->.. pattern is not followed */
     if (in_index == UINT32_MAX)
     {
@@ -2740,6 +3227,8 @@ void OpenGL::VKFrameGraph::set_acquired_swapchain_image_index(const uint32_t& in
 
 void OpenGL::VKFrameGraph::set_bound_dynamic_blend_color_state(const float* in_data_vec4_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     memcpy(m_current_cmd_buffer_dynamic_state.bound_dynamic_blend_color_state,
            in_data_vec4_ptr,
            sizeof(float) * 4 /* vec4 */);
@@ -2749,66 +3238,88 @@ void OpenGL::VKFrameGraph::set_bound_dynamic_blend_color_state(const float* in_d
 
 void OpenGL::VKFrameGraph::set_bound_dynamic_line_width_state(const float& in_line_width)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     m_current_cmd_buffer_dynamic_state.bound_dynamic_line_width_state    = in_line_width;
     m_current_cmd_buffer_dynamic_state.is_dynamic_line_width_state_bound = true;
 }
 
 void OpenGL::VKFrameGraph::set_bound_dynamic_scissor_state(const VkRect2D& in_scissor)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     m_current_cmd_buffer_dynamic_state.bound_dynamic_scissor_state    = in_scissor;
     m_current_cmd_buffer_dynamic_state.is_dynamic_scissor_state_bound = true;
 }
 
 void OpenGL::VKFrameGraph::set_bound_dynamic_stencil_compare_mask_back_state(const int32_t& in_value)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     m_current_cmd_buffer_dynamic_state.bound_dynamic_stencil_compare_mask_back_state    = in_value;
     m_current_cmd_buffer_dynamic_state.is_dynamic_stencil_compare_mask_back_state_bound = true;
 }
 
 void OpenGL::VKFrameGraph::set_bound_dynamic_stencil_compare_mask_front_state(const int32_t& in_value)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     m_current_cmd_buffer_dynamic_state.bound_dynamic_stencil_compare_mask_front_state    = in_value;
     m_current_cmd_buffer_dynamic_state.is_dynamic_stencil_compare_mask_front_state_bound = true;
 }
 
 void OpenGL::VKFrameGraph::set_bound_dynamic_stencil_reference_back_state(const int32_t& in_value)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     m_current_cmd_buffer_dynamic_state.bound_dynamic_stencil_reference_back_state    = in_value;
     m_current_cmd_buffer_dynamic_state.is_dynamic_stencil_reference_back_state_bound = true;
 }
 
 void OpenGL::VKFrameGraph::set_bound_dynamic_stencil_reference_front_state(const int32_t& in_value)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     m_current_cmd_buffer_dynamic_state.bound_dynamic_stencil_reference_front_state    = in_value;
     m_current_cmd_buffer_dynamic_state.is_dynamic_stencil_reference_front_state_bound = true;
 }
 
 void OpenGL::VKFrameGraph::set_bound_dynamic_stencil_write_mask_back_state(const int32_t& in_value)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     m_current_cmd_buffer_dynamic_state.bound_dynamic_stencil_write_mask_back_state    = in_value;
     m_current_cmd_buffer_dynamic_state.is_dynamic_stencil_write_mask_back_state_bound = true;
 }
 
 void OpenGL::VKFrameGraph::set_bound_dynamic_stencil_write_mask_front_state(const int32_t& in_value)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     m_current_cmd_buffer_dynamic_state.bound_dynamic_stencil_write_mask_front_state    = in_value;
     m_current_cmd_buffer_dynamic_state.is_dynamic_stencil_write_mask_front_state_bound = true;
 }
 
 void OpenGL::VKFrameGraph::set_bound_dynamic_viewport_state(const VkViewport& in_viewport)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     m_current_cmd_buffer_dynamic_state.bound_dynamic_viewport_state    = in_viewport;
     m_current_cmd_buffer_dynamic_state.is_dynamic_viewport_state_bound = true;
 }
 
 void OpenGL::VKFrameGraph::set_bound_pipeline_id(const Anvil::PipelineID& in_pipeline_id)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     m_current_cmd_buffer_dynamic_state.bound_gfx_pipeline_id    = in_pipeline_id;
     m_current_cmd_buffer_dynamic_state.is_gfx_pipeline_id_bound = true;
 }
 
 void OpenGL::VKFrameGraph::set_swapchain_image_acquired_sem(Anvil::Semaphore* in_sem_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     if (m_swapchain_acquire_sem_ptr == nullptr)
     {
         vkgl_assert(in_sem_ptr                  != nullptr);
@@ -2827,6 +3338,8 @@ void OpenGL::VKFrameGraph::split_access_mask_to_color_and_ds_access_masks(const 
                                                                           Anvil::AccessFlags*       out_color_aspect_access_mask_ptr,
                                                                           Anvil::AccessFlags*       out_ds_aspects_access_mask_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     Anvil::AccessFlags color_src_access_mask = in_access_mask & ~(Anvil::AccessFlagBits::DEPTH_STENCIL_ATTACHMENT_READ_BIT | Anvil::AccessFlagBits::DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
     Anvil::AccessFlags ds_src_access_mask    = in_access_mask & ~(Anvil::AccessFlagBits::COLOR_ATTACHMENT_READ_BIT         | Anvil::AccessFlagBits::COLOR_ATTACHMENT_WRITE_BIT);
 
@@ -2856,6 +3369,8 @@ bool OpenGL::VKFrameGraph::submit_command_buffers(const std::vector<CommandBuffe
                                                   Anvil::Fence*                                        in_opt_wait_fence_ptr,
                                                   std::vector<Anvil::SemaphoreUniquePtr>&              inout_sem_ptr_vec)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const uint32_t n_submissions = static_cast<uint32_t>(in_cmd_buffer_submissions_ptr.size() );
     bool           result        = false;
 

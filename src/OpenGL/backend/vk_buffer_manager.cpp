@@ -15,12 +15,16 @@ OpenGL::VKBufferManager::VKBufferManager(const OpenGL::IContextObjectManagers* i
     :m_backend_ptr (in_backend_ptr),
      m_frontend_ptr(in_frontend_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_backend_ptr  != nullptr);
     vkgl_assert(m_frontend_ptr != nullptr);
 }
 
 OpenGL::VKBufferManager::~VKBufferManager()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /*  Stub */
 }
 
@@ -28,6 +32,8 @@ OpenGL::VKBufferReferenceUniquePtr OpenGL::VKBufferManager::acquire_object(const
                                                                            OpenGL::TimeMarker in_frontend_object_creation_time,
                                                                            OpenGL::TimeMarker in_buffer_time_marker)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     std::lock_guard<std::mutex>        lock                 (m_mutex);
     BufferData*                        buffer_data_ptr      (nullptr);
     const auto                         buffer_map_key       (BufferMapKey(in_id, in_frontend_object_creation_time) );
@@ -103,6 +109,8 @@ bool OpenGL::VKBufferManager::can_buffer_handle_frontend_reqs(const Anvil::Buffe
                                                               const OpenGL::BufferTarget* in_buffer_targets_ptr,
                                                               const size_t&               in_size) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const auto buffer_create_info_ptr = in_buffer_ptr->get_create_info_ptr                   ();
     const auto required_usage_flags   = OpenGL::VKUtils::get_buffer_usage_flags_for_gl_buffer(in_n_buffer_targets,
                                                                                               in_buffer_targets_ptr);
@@ -131,6 +139,8 @@ end:
 OpenGL::VKBufferManagerUniquePtr OpenGL::VKBufferManager::create(const OpenGL::IContextObjectManagers* in_frontend_ptr,
                                                                  OpenGL::IBackend*                     in_backend_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     OpenGL::VKBufferManagerUniquePtr result_ptr;
 
     result_ptr.reset(
@@ -145,6 +155,8 @@ OpenGL::VKBufferManagerUniquePtr OpenGL::VKBufferManager::create(const OpenGL::I
 bool OpenGL::VKBufferManager::create_object(const GLuint&             in_id,
                                             const OpenGL::TimeMarker& in_frontend_object_creation_time)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* NOTE: This function is only called from within the rendering context thread */
     BufferDataUniquePtr         buffer_data_ptr(nullptr);
     const auto                  buffer_map_key (BufferMapKey(in_id, in_frontend_object_creation_time) );
@@ -174,6 +186,8 @@ end:
 Anvil::BufferUniquePtr OpenGL::VKBufferManager::create_vk_buffer(const GLuint&              in_id,
                                                                  const OpenGL::BufferState* in_frontend_buffer_state_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     Anvil::BufferCreateInfoUniquePtr create_info_ptr;
     auto                             device_ptr            = m_backend_ptr->get_device_ptr();
     const uint32_t                   n_buffer_targets_used = static_cast<uint32_t>(in_frontend_buffer_state_ptr->buffer_targets_used.size() );
@@ -207,6 +221,8 @@ Anvil::BufferUniquePtr OpenGL::VKBufferManager::create_vk_buffer(const GLuint&  
 bool OpenGL::VKBufferManager::destroy_object(const GLuint&             in_id,
                                              const OpenGL::TimeMarker& in_frontend_object_creation_time)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* NOTE: This function is only called from within the rendering context thread */
     std::lock_guard<std::mutex> lock           (m_mutex);
     const auto                  buffer_map_key (BufferMapKey(in_id, in_frontend_object_creation_time) );
@@ -242,6 +258,8 @@ bool OpenGL::VKBufferManager::destroy_object(const GLuint&             in_id,
 
 uint32_t OpenGL::VKBufferManager::get_n_references(const BufferData* in_buffer_data_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* NOTE: This function assumes m_mutex is locked! */
     uint32_t result = 0;
 
@@ -256,6 +274,8 @@ uint32_t OpenGL::VKBufferManager::get_n_references(const BufferData* in_buffer_d
 OpenGL::TimeMarker OpenGL::VKBufferManager::get_tot_buffer_time_marker(const GLuint&             in_id,
                                                                        const OpenGL::TimeMarker& in_frontend_object_creation_time) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     std::lock_guard<std::mutex> lock                 (m_mutex);
     const auto                  buffer_map_key       (BufferMapKey(in_id, in_frontend_object_creation_time) );
     auto                        buffer_props_iterator(m_buffers.find(buffer_map_key) );
@@ -268,6 +288,8 @@ OpenGL::TimeMarker OpenGL::VKBufferManager::get_tot_buffer_time_marker(const GLu
 void OpenGL::VKBufferManager::on_reference_created(BufferData*                in_buffer_data_ptr,
                                                    OpenGL::VKBufferReference* in_reference_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* NOTE: m_mutex is assumed to be locked when this func is called */
     auto buffer_iterator = in_buffer_data_ptr->buffer_map.find(in_reference_ptr->get_payload().backend_buffer_creation_time_marker);
 
@@ -280,6 +302,8 @@ void OpenGL::VKBufferManager::on_reference_created(BufferData*                in
 void OpenGL::VKBufferManager::on_reference_destroyed(BufferData*                in_buffer_data_ptr,
                                                      OpenGL::VKBufferReference* in_reference_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     std::lock_guard<std::mutex> lock           (m_mutex);
     auto                        buffer_iterator(in_buffer_data_ptr->buffer_map.find(in_reference_ptr->get_payload().backend_buffer_creation_time_marker) );
 
@@ -294,6 +318,20 @@ void OpenGL::VKBufferManager::on_reference_destroyed(BufferData*                
             buffer_iterator->second->reference_ptrs.erase(ref_iterator);
         }
     }
+
+	{
+    	auto current_buffer_iterator = in_buffer_data_ptr->buffer_map.begin();
+    	
+    	while (current_buffer_iterator->first != in_buffer_data_ptr->buffer_map.rbegin()->first)
+    	{
+    		if (current_buffer_iterator->second->reference_ptrs.size() == 0)
+    		{
+    			in_buffer_data_ptr->buffer_map.erase(current_buffer_iterator);
+    		}
+    		
+        	current_buffer_iterator = in_buffer_data_ptr->buffer_map.begin();
+    	}
+	}
 
     if (get_n_references(in_buffer_data_ptr)   == 0 &&
         in_buffer_data_ptr->has_been_destroyed)

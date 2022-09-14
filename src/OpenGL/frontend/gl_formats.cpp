@@ -61,7 +61,6 @@ typedef struct InternalFormatData
     }
 } InternalFormatData;
 
-OpenGL::PixelFormat;
 static const std::unordered_map<OpenGL::InternalFormat, InternalFormatData> g_gl_internalformat_data =
 {
     /* Base internal formats */
@@ -242,6 +241,8 @@ static const std::vector<OpenGL::InternalFormat> g_ds_sized_internalformats =
 OpenGL::InternalFormat OpenGL::GLFormats::get_best_fit_ds_internal_format(const uint32_t& in_depth_bits,
                                                                           const uint32_t& in_stencil_bits)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     OpenGL::InternalFormat result                = OpenGL::InternalFormat::Unknown;
     uint32_t               result_n_depth_bits   = 0;
     uint32_t               result_n_stencil_bits = 0;
@@ -296,6 +297,8 @@ OpenGL::InternalFormat OpenGL::GLFormats::get_best_fit_ds_internal_format(const 
 
 OpenGL::FormatDataType OpenGL::GLFormats::get_format_data_type_for_non_base_internal_format(const OpenGL::InternalFormat& in_format)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const auto             internalformat_data_iterator = g_gl_internalformat_data.find(in_format);
     OpenGL::FormatDataType result                       = OpenGL::FormatDataType::Unknown;
 
@@ -310,6 +313,8 @@ OpenGL::FormatDataType OpenGL::GLFormats::get_format_data_type_for_non_base_inte
 
 uint32_t OpenGL::GLFormats::get_n_components_for_sized_internal_format(const OpenGL::InternalFormat& in_format)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const auto internalformat_data_iterator = g_gl_internalformat_data.find(in_format);
     uint32_t   result                       = 0;
 
@@ -327,6 +332,8 @@ bool OpenGL::GLFormats::get_per_component_bit_size_for_sized_internal_format(con
                                                                              uint32_t*                     out_ds_size_ptr,
                                                                              uint32_t*                     out_shared_size_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const auto internalformat_data_iterator = g_gl_internalformat_data.find(in_format);
     bool       result                       = false;
 
@@ -350,6 +357,8 @@ bool OpenGL::GLFormats::get_per_component_bit_size_for_sized_internal_format(con
 
 bool OpenGL::GLFormats::is_base_internal_format(const OpenGL::InternalFormat& in_format)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const auto internalformat_data_iterator = g_gl_internalformat_data.find(in_format);
     bool       result                       = false;
 
@@ -364,6 +373,8 @@ bool OpenGL::GLFormats::is_base_internal_format(const OpenGL::InternalFormat& in
 
 bool OpenGL::GLFormats::is_compressed_internal_format(const OpenGL::InternalFormat& in_format)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const auto internalformat_data_iterator = g_gl_internalformat_data.find(in_format);
     bool       result                       = false;
 
@@ -378,6 +389,8 @@ bool OpenGL::GLFormats::is_compressed_internal_format(const OpenGL::InternalForm
 
 bool OpenGL::GLFormats::is_sized_internal_format(const OpenGL::InternalFormat& in_format)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const auto internalformat_data_iterator = g_gl_internalformat_data.find(in_format);
     bool       result                       = false;
 
@@ -389,3 +402,28 @@ bool OpenGL::GLFormats::is_sized_internal_format(const OpenGL::InternalFormat& i
 
     return result;
 }
+
+OpenGL::InternalFormat OpenGL::GLFormats::choose_sized_internal_format_for_base_internal_format(const OpenGL::InternalFormat& in_base_internal_format)
+{
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+	auto result = OpenGL::InternalFormat::Unknown;
+	
+	switch (in_base_internal_format)
+	{
+		case OpenGL::InternalFormat::Depth_Component:		result = OpenGL::InternalFormat::Depth_Component24;		break;
+		case OpenGL::InternalFormat::Depth_Stencil:				result = OpenGL::InternalFormat::Depth24_Stencil8;		break;
+		case OpenGL::InternalFormat::Red:						result = OpenGL::InternalFormat::R8;					break;
+		case OpenGL::InternalFormat::RG:						result = OpenGL::InternalFormat::RG8;					break;
+		case OpenGL::InternalFormat::RGB:						result = OpenGL::InternalFormat::RGB8;					break;
+		case OpenGL::InternalFormat::RGBA:						result = OpenGL::InternalFormat::RGBA8;					break;
+		
+		default:
+		{
+			vkgl_assert_fail();
+		}
+	}
+	
+	return result;
+}
+

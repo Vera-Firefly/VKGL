@@ -5,8 +5,10 @@
 #ifndef VKGL_VK_REFERENCE_H
 #define VKGL_VK_REFERENCE_H
 
+#define GL_GLEXT_PROTOTYPES
+
+#include "Khronos/GL/gl.h"
 #include "Anvil/include/misc/types.h"
-#include "GL/glcorearb.h"
 #include "OpenGL/reference.h"
 #include <chrono>
 
@@ -19,7 +21,7 @@ namespace OpenGL
         OpenGL::TimeMarker  frontend_object_creation_time_marker;
         GLuint              id;
 
-        const VKBufferPayload(const GLuint&             in_id,
+        VKBufferPayload(const GLuint&             in_id,
                               const OpenGL::TimeMarker& in_frontend_object_creation_time_marker,
                               Anvil::Buffer*            in_buffer_ptr,
                               const OpenGL::TimeMarker& in_backend_buffer_creation_time_marker)
@@ -48,17 +50,23 @@ namespace OpenGL
 
     typedef struct VKImagePayload
     {
-        OpenGL::TimeMarker  backend_buffer_creation_time_marker;
-        Anvil::Image*       image_ptr;
+        OpenGL::TimeMarker  backend_image_creation_time_marker;
+        Anvil::Image*       	image_ptr;
+        Anvil::ImageView*       image_view_ptr;
+        Anvil::Sampler*       	sampler_ptr;
         OpenGL::TimeMarker  frontend_object_creation_time_marker;
         GLuint              id;
 
-        const VKImagePayload(const GLuint&              in_id,
+        VKImagePayload(const GLuint&              in_id,
                               const OpenGL::TimeMarker& in_frontend_object_creation_time_marker,
                               Anvil::Image*             in_image_ptr,
-                              const OpenGL::TimeMarker& in_backend_buffer_creation_time_marker)
-           :backend_buffer_creation_time_marker (in_backend_buffer_creation_time_marker),
+                              Anvil::ImageView*          in_image_view_ptr,
+                              Anvil::Sampler*             in_sampler_ptr,
+                              const OpenGL::TimeMarker& in_backend_image_creation_time_marker)
+           :backend_image_creation_time_marker (in_backend_image_creation_time_marker),
             image_ptr                           (in_image_ptr),
+        	image_view_ptr                       (in_image_view_ptr),
+            sampler_ptr                           (in_sampler_ptr),
             frontend_object_creation_time_marker(in_frontend_object_creation_time_marker),
             id                                  (in_id)
         {
@@ -68,14 +76,14 @@ namespace OpenGL
         bool operator==(const VKImagePayload& in_ref) const
         {
             return (id                                     == in_ref.id                                     &&
-                    backend_buffer_creation_time_marker    == in_ref.backend_buffer_creation_time_marker    &&
+                    backend_image_creation_time_marker    == in_ref.backend_image_creation_time_marker    &&
                     frontend_object_creation_time_marker   == in_ref.frontend_object_creation_time_marker);
         }
 
         bool operator!=(const VKImagePayload& in_ref) const
         {
             return (id                                     != in_ref.id                                     ||
-                    backend_buffer_creation_time_marker    != in_ref.backend_buffer_creation_time_marker    ||
+                    backend_image_creation_time_marker    != in_ref.backend_image_creation_time_marker    ||
                     frontend_object_creation_time_marker   != in_ref.frontend_object_creation_time_marker);
         }
     } VKImagePayload;
@@ -85,7 +93,7 @@ namespace OpenGL
         Anvil::Swapchain*   swapchain_ptr;
         OpenGL::TimeMarker  time_marker;
 
-        const VKSwapchainPayload(Anvil::Swapchain*         in_swapchain_ptr,
+        VKSwapchainPayload(Anvil::Swapchain*         in_swapchain_ptr,
                                  const OpenGL::TimeMarker& in_time_marker)
            :swapchain_ptr(in_swapchain_ptr),
             time_marker  (in_time_marker)

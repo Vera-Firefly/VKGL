@@ -63,6 +63,7 @@ namespace OpenGL
 
             /* Stash the base snapshot. */
             m_snapshots[m_last_modified_time] = std::move(new_snapshot_ptr);
+            
         }
 
         ObjectReferenceUniquePtrType acquire_reference(const PayloadType& in_payload)

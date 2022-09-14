@@ -9,7 +9,9 @@ OpenGL::ThreadPool::Task::Task(std::function<void()> in_callback_func,
     :m_callback_func              (in_callback_func),
      m_enki_task_set_ptr(std::move(in_enki_task_set_ptr) )
 {
-    enkiAddTaskSetToPipe(m_enki_task_set_ptr->get_task_scheduler_ptr(),
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+    enkiAddTaskSetArgs(m_enki_task_set_ptr->get_task_scheduler_ptr(),
                          m_enki_task_set_ptr->get_enki_task_set_ptr (),
                          this,
                          1); /* setSize_ */
@@ -20,6 +22,8 @@ void OpenGL::ThreadPool::Task::handle_callback(uint32_t in_start,
                                                uint32_t in_n_thread,
                                                void*    in_args_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     Task* task_ptr = reinterpret_cast<Task*>(in_args_ptr);
 
     vkgl_assert(in_start    == 0);
@@ -34,11 +38,15 @@ void OpenGL::ThreadPool::Task::handle_callback(uint32_t in_start,
 OpenGL::ThreadPool::ThreadPool()
     :m_task_scheduler_ptr(nullptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* Stub */
 }
 
 OpenGL::ThreadPool::~ThreadPool()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_task_scheduler_ptr != nullptr);
 
     enkiWaitForAll         (m_task_scheduler_ptr);
@@ -47,6 +55,8 @@ OpenGL::ThreadPool::~ThreadPool()
 
 OpenGL::ThreadPoolUniquePtr OpenGL::ThreadPool::create()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     OpenGL::ThreadPoolUniquePtr result_ptr;
 
     result_ptr.reset(new OpenGL::ThreadPool() );
@@ -65,6 +75,8 @@ OpenGL::ThreadPoolUniquePtr OpenGL::ThreadPool::create()
 
 bool OpenGL::ThreadPool::init()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     bool result = false;
 
     m_task_scheduler_ptr = enkiNewTaskScheduler();
@@ -78,6 +90,8 @@ bool OpenGL::ThreadPool::init()
 
 void OpenGL::ThreadPool::submit_task(std::function<void()> in_callback)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     EnkiTaskSetUniquePtr enki_task_set_ptr;
     Task*                task_ptr          = nullptr;
 

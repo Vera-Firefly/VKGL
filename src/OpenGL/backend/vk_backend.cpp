@@ -3,9 +3,14 @@
  * This code is licensed under MIT license (see LICENSE.txt for details)
  */
 #include "Anvil/include/misc/device_create_info.h"
+#include "Anvil/include/misc/buffer_create_info.h"
+#include "Anvil/include/misc/image_create_info.h"
 #include "Anvil/include/misc/memory_allocator.h"
 #include "Anvil/include/wrappers/device.h"
 #include "Anvil/include/wrappers/instance.h"
+#include "Anvil/include/wrappers/buffer.h"
+#include "Anvil/include/wrappers/image.h"
+#include "Common/logger.h"
 #include "Common/macros.h"
 #include "OpenGL/types.h"
 #include "OpenGL/converters.h"
@@ -20,9 +25,11 @@
 #include "OpenGL/frontend/gl_buffer_manager.h"
 #include "OpenGL/frontend/gl_program_manager.h"
 #include "OpenGL/frontend/gl_shader_manager.h"
+#include "OpenGL/frontend/gl_texture_manager.h"
+#include "OpenGL/frontend/gl_renderbuffer_manager.h"
 #include "OpenGL/frontend/gl_state_manager.h"
 #include "OpenGL/utils_enum.h"
-#include "WGL/context.h"
+//#include "WGL/context.h"
 #include <sstream>
 
 /* TODO: Touching heap memory is awful, but right now this happens in every command handler because
@@ -42,11 +49,15 @@ OpenGL::VKBackend::VKBackend(const VKGL::IWSIContext* in_wsi_context_ptr)
     :m_frontend_ptr   (nullptr),
      m_wsi_context_ptr(in_wsi_context_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_wsi_context_ptr != nullptr);
 }
 
 OpenGL::VKBackend::~VKBackend()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* Make sure to release the scheduler before we go ahead and destroy core VK objects. */
     m_scheduler_ptr.reset();
 
@@ -75,6 +86,8 @@ void OpenGL::VKBackend::buffer_data(const GLuint&     in_id,
                                     const GLsizeiptr& in_size,
                                     const void*       in_data_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     OpenGL::DataUniquePtr data_ptr(nullptr,
                                    [](void* in_ptr){if (in_ptr != nullptr) { delete [] reinterpret_cast<unsigned char*>(in_ptr);} });
 
@@ -88,7 +101,6 @@ void OpenGL::VKBackend::buffer_data(const GLuint&     in_id,
                in_data_ptr,
                in_size);
     }
-
     /* 2. Grab the buffer reference. */
     auto buffer_reference_ptr = m_frontend_ptr->get_buffer_manager_ptr()->acquire_current_latest_snapshot_reference(in_id);
 
@@ -110,6 +122,8 @@ void OpenGL::VKBackend::buffer_sub_data(const GLuint&     in_id,
                                         const GLsizeiptr& in_size,
                                         const void*       in_data_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     OpenGL::DataUniquePtr data_ptr(nullptr,
                                    [](void* in_ptr){if (in_ptr != nullptr) { delete [] reinterpret_cast<unsigned char*>(in_ptr);} });
 
@@ -142,6 +156,8 @@ void OpenGL::VKBackend::buffer_sub_data(const GLuint&     in_id,
 
 void OpenGL::VKBackend::clear(const OpenGL::ClearBufferBits& in_buffers_to_clear)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto context_state_reference_ptr = m_frontend_ptr->get_state_manager_ptr()->acquire_current_latest_snapshot_reference();
 
     OpenGL::CommandBaseUniquePtr cmd_ptr(new OpenGL::ClearCommand(in_buffers_to_clear,
@@ -155,6 +171,8 @@ void OpenGL::VKBackend::clear(const OpenGL::ClearBufferBits& in_buffers_to_clear
 
 void OpenGL::VKBackend::compile_shader(const GLuint& in_id)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto        frontend_shader_manager_ptr = m_frontend_ptr->get_shader_manager_ptr();
     const char* shader_glsl                 = nullptr;
     SPIRVBlobID spirv_blob_id               = UINT32_MAX;
@@ -218,6 +236,8 @@ void OpenGL::VKBackend::compressed_tex_image_1d(const GLuint&                 in
                                                 const GLsizei                 in_image_size,
                                                 const void*                   in_data)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -230,6 +250,8 @@ void OpenGL::VKBackend::compressed_tex_image_2d(const GLuint&                 in
                                                 const GLsizei&                in_image_size,
                                                 const void*                   in_data)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -243,6 +265,8 @@ void OpenGL::VKBackend::compressed_tex_image_3d(const GLuint&                 in
                                                 const GLsizei&                in_image_size,
                                                 const void*                   in_data)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -254,6 +278,8 @@ void OpenGL::VKBackend::compressed_tex_sub_image_1d(const GLuint&              i
                                                     const GLsizei&             in_image_size,
                                                     const void*                in_data)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -267,6 +293,8 @@ void OpenGL::VKBackend::compressed_tex_sub_image_2d(const GLuint&              i
                                                     const GLsizei&             in_image_size,
                                                     const void*                in_data)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -282,6 +310,8 @@ void OpenGL::VKBackend::compressed_tex_sub_image_3d(const GLuint&              i
                                                     const GLsizei&             in_image_size,
                                                     const void*                in_data)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -291,6 +321,8 @@ void OpenGL::VKBackend::copy_buffer_sub_data(const GLuint&     in_read_buffer_id
                                              const GLintptr&   in_write_offset,
                                              const GLsizeiptr& in_size)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -302,6 +334,8 @@ void OpenGL::VKBackend::copy_tex_image_1d(const GLuint&                 in_id,
                                           const GLsizei&                in_width,
                                           const GLint&                  in_border)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -314,6 +348,21 @@ void OpenGL::VKBackend::copy_tex_image_2d(const GLuint&                 in_id,
                                           const GLsizei&                in_height,
                                           const GLint&                  in_border)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+    auto 		gl_texture_reference_ptr = m_frontend_ptr->get_texture_manager_ptr()->acquire_current_latest_snapshot_reference(in_id);
+    const auto& gl_texture_creation_time = gl_texture_reference_ptr->get_payload().object_creation_time;
+    const auto& gl_texture_id            = gl_texture_reference_ptr->get_payload().id;
+    const auto& gl_texture_snapshot_time = gl_texture_reference_ptr->get_payload().time_marker;
+    
+    auto vk_image_reference_ptr = m_image_manager_ptr->acquire_object(gl_texture_id,
+                                                                              gl_texture_creation_time,
+                                                                              gl_texture_snapshot_time);
+
+    vkgl_assert(vk_image_reference_ptr != nullptr);
+    
+    auto vk_image_ptr = vk_image_reference_ptr->get_payload().image_ptr;
+    
     vkgl_not_implemented();
 }
 
@@ -324,6 +373,8 @@ void OpenGL::VKBackend::copy_tex_sub_image_1d(const GLuint&  in_id,
                                               const GLint&   in_y,
                                               const GLsizei& in_width)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -336,6 +387,21 @@ void OpenGL::VKBackend::copy_tex_sub_image_2d(const GLuint&  in_id,
                                               const GLsizei& in_width,
                                               const GLsizei& in_height)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+    auto 		gl_texture_reference_ptr = m_frontend_ptr->get_texture_manager_ptr()->acquire_current_latest_snapshot_reference(in_id);
+    const auto& gl_texture_creation_time = gl_texture_reference_ptr->get_payload().object_creation_time;
+    const auto& gl_texture_id            = gl_texture_reference_ptr->get_payload().id;
+    const auto& gl_texture_snapshot_time = gl_texture_reference_ptr->get_payload().time_marker;
+    
+    auto vk_image_reference_ptr = m_image_manager_ptr->acquire_object(gl_texture_id,
+                                                                              gl_texture_creation_time,
+                                                                              gl_texture_snapshot_time);
+
+    vkgl_assert(vk_image_reference_ptr != nullptr);
+    
+    auto vk_image_ptr = vk_image_reference_ptr->get_payload().image_ptr;
+    
     vkgl_not_implemented();
 }
 
@@ -349,11 +415,15 @@ void OpenGL::VKBackend::copy_tex_sub_image_3d(const GLuint&  in_id,
                                               const GLsizei& in_width,
                                               const GLsizei& in_height)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 OpenGL::VKBackendUniquePtr OpenGL::VKBackend::create(const VKGL::IWSIContext* in_wsi_context_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     OpenGL::VKBackendUniquePtr result_ptr;
 
     result_ptr.reset(new OpenGL::VKBackend(in_wsi_context_ptr) );
@@ -373,6 +443,8 @@ void OpenGL::VKBackend::draw_arrays(const OpenGL::DrawCallMode& in_mode,
                                     const GLint&                in_first,
                                     const GLsizei&              in_count)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* 1. Grab a snapshot of current context's state.
      *
      *    Context state holds so-called proxy references. Convert those we're going to need to be able to use into
@@ -388,6 +460,18 @@ void OpenGL::VKBackend::draw_arrays(const OpenGL::DrawCallMode& in_mode,
 
     vkgl_assert(state_binding_references_ptr != nullptr);
 
+    {
+        const auto&                 		program_payload              		= state_binding_references_ptr->program_reference_ptr->get_payload();
+        SPIRVBlobID 						spirv_id 							= UINT_MAX;
+        vkgl_assert(m_spirv_manager_ptr != nullptr);
+        m_spirv_manager_ptr->get_spirv_blob_id_for_program_reference(program_payload.id,
+        																		program_payload.time_marker,
+        																		&spirv_id);
+        vkgl_assert(spirv_id != UINT_MAX);
+        
+        update_texture_reference_for_uniform_resources(spirv_id);
+    }
+    
     /* 2. Spawn the command container .. */
     OpenGL::CommandBaseUniquePtr cmd_ptr(new OpenGL::DrawArraysCommand(in_count,
                                                                        in_first,
@@ -407,6 +491,8 @@ void OpenGL::VKBackend::draw_elements(const OpenGL::DrawCallMode&      in_mode,
                                       const OpenGL::DrawCallIndexType& in_type,
                                       const void*                      in_indices)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* 1. Grab a snapshot of current context's state.
      *
      *    Context state holds so-called proxy references. Convert those we're going to need to be able to use into
@@ -421,6 +507,18 @@ void OpenGL::VKBackend::draw_elements(const OpenGL::DrawCallMode&      in_mode,
                                                                                                     state_reference_ptr.get() );
 
     vkgl_assert(state_binding_references_ptr != nullptr);
+
+	{
+        const auto&                 		program_payload              		= state_binding_references_ptr->program_reference_ptr->get_payload();
+        SPIRVBlobID 						spirv_id 							= UINT_MAX;
+        vkgl_assert(m_spirv_manager_ptr != nullptr);
+        m_spirv_manager_ptr->get_spirv_blob_id_for_program_reference(program_payload.id,
+        																		program_payload.time_marker,
+        																		&spirv_id);
+        vkgl_assert(spirv_id != UINT_MAX);
+        
+        update_texture_reference_for_uniform_resources(spirv_id);
+    }
 
     /* 2. Spawn the command container ..
      *
@@ -447,11 +545,15 @@ void OpenGL::VKBackend::draw_range_elements(const OpenGL::DrawCallMode&      in_
                                             const OpenGL::DrawCallIndexType& in_type,
                                             const void*                      in_indices)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKBackend::finish()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     OpenGL::CommandBaseUniquePtr cmd_ptr  (nullptr,
                                            std::default_delete<OpenGL::CommandBase>() );
     VKGL::FenceUniquePtr         fence_ptr(nullptr,
@@ -473,6 +575,8 @@ void OpenGL::VKBackend::finish()
 
 void OpenGL::VKBackend::flush(VKGL::Fence* in_opt_fence_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* Spawn the command container .. */
     OpenGL::CommandBaseUniquePtr cmd_ptr(new OpenGL::FlushCommand(in_opt_fence_ptr),
                                          std::default_delete<OpenGL::CommandBase>() );
@@ -486,6 +590,8 @@ void OpenGL::VKBackend::flush_mapped_buffer_range(const GLuint&     in_id,
                                                   const GLintptr&   in_offset,
                                                   const GLsizeiptr& in_length)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -494,6 +600,8 @@ void OpenGL::VKBackend::get_buffer_sub_data(const GLuint&     in_id,
                                             const GLsizeiptr& in_size,
                                             void*             out_data_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -532,6 +640,8 @@ void OpenGL::VKBackend::get_compressed_tex_image(const GLuint& in_id,
                                                  const GLint&  in_level,
                                                  void*         in_img)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -541,11 +651,15 @@ void OpenGL::VKBackend::get_texture_image(const GLuint&              in_id,
                                           const OpenGL::PixelType&   in_type,
                                           void*                      out_pixels_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 bool OpenGL::VKBackend::init()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     bool result = false;
 
     /* Init low-level Vulkan guts provider facility first.. */
@@ -593,7 +707,7 @@ bool OpenGL::VKBackend::init()
 
         goto end;
     }
-
+    
     m_format_manager_ptr = OpenGL::VKFormatManager::create(dynamic_cast<Anvil::SGPUDevice*>(get_device_ptr()) );
 
     if (m_format_manager_ptr == nullptr)
@@ -634,6 +748,8 @@ end:
 
 bool OpenGL::VKBackend::init_anvil()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const Anvil::PhysicalDevice* physical_device_ptr = nullptr;
     bool                         result              = false;
 
@@ -668,8 +784,10 @@ bool OpenGL::VKBackend::init_anvil()
     {
         Anvil::DeviceExtensionConfiguration dev_exts;
 
-        /* VK_KHR_maintenance1 is required for viewport origin flipping */
-        dev_exts.extension_status[VK_KHR_MAINTENANCE1_EXTENSION_NAME] = Anvil::ExtensionAvailability::REQUIRE;
+        {
+            /* VK_KHR_maintenance1 is required for viewport origin flipping */
+            dev_exts.extension_status[VK_KHR_MAINTENANCE1_EXTENSION_NAME] = Anvil::ExtensionAvailability::REQUIRE;
+        }
 
         auto create_info_ptr = Anvil::DeviceCreateInfo::create_sgpu(physical_device_ptr,
                                                                     true, /* in_enable_shader_module_cache */
@@ -695,6 +813,8 @@ end:
 
 bool OpenGL::VKBackend::init_capabilities()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* NOTE: Taken from GL 3.2 spec */
     const float    min_aliased_line_width_range[2]                   = {1.0f, 1.0f};
     const auto     min_max_3d_texture_size                           = 256;
@@ -748,15 +868,14 @@ bool OpenGL::VKBackend::init_capabilities()
     const auto     min_max_combined_fragment_uniform_components      = sizeof(uint32_t) / (min_max_fragment_uniform_blocks * min_max_uniform_block_size + min_max_fragment_uniform_components);
     const auto     min_max_combined_geometry_uniform_components      = sizeof(uint32_t) / (min_max_geometry_uniform_blocks * min_max_uniform_block_size + min_max_geometry_uniform_components);
     const auto     min_max_combined_vertex_uniform_components        = sizeof(uint32_t) / (min_max_vertex_uniform_blocks   * min_max_uniform_block_size + min_max_vertex_uniform_components);
-    const auto     min_max_texture_size                              = std::min(std::min(min_max_3d_texture_size, min_max_cube_map_texture_size),
-                                                                                min_max_rectangle_texture_size);
+    const auto     min_max_texture_size                              = 1024;
 
 
     const auto&           physical_device_limits                   = m_device_ptr->get_physical_device_properties().core_vk1_0_properties_ptr->limits;
     static const uint32_t max_combined_fragment_uniform_components = physical_device_limits.max_uniform_buffer_range  / sizeof(uint32_t);
     static const uint32_t max_combined_geometry_uniform_components = physical_device_limits.max_uniform_buffer_range  / sizeof(uint32_t);
     static const uint32_t max_combined_vertex_uniform_components   = physical_device_limits.max_uniform_buffer_range  / sizeof(uint32_t);
-    static const uint32_t max_texture_buffer_size                  = physical_device_limits.max_texel_buffer_elements / sizeof(uint32_t); /* worst-case scenario */
+    static const uint32_t max_texture_buffer_size                  = physical_device_limits.max_texel_buffer_elements; /* worst-case scenario */
     static const uint32_t query_counter_bits                       = 64;
     static const uint32_t uint32_max_u32                           = UINT32_MAX;
     static const uint64_t uint64_max_u64                           = UINT64_MAX;
@@ -817,7 +936,7 @@ bool OpenGL::VKBackend::init_capabilities()
         {OpenGL::BackendCapability::Max_Texture_Buffer_Size,                       CapabilityData(&max_texture_buffer_size,                                         1)},
         {OpenGL::BackendCapability::Max_Texture_Image_Units,                       CapabilityData(&physical_device_limits.max_per_stage_descriptor_samplers,        1)},
         {OpenGL::BackendCapability::Max_Texture_LOD_Bias,                          CapabilityData(&physical_device_limits.max_sampler_lod_bias,                     1)},
-        {OpenGL::BackendCapability::Max_Texture_Size,                              CapabilityData(&physical_device_limits.max_image_dimension_cube,                 1)},
+        {OpenGL::BackendCapability::Max_Texture_Size,                              CapabilityData(&physical_device_limits.max_image_dimension_2D,                 1)},
         {OpenGL::BackendCapability::Max_Transform_Feedback_Buffers,                CapabilityData(&max_transform_feedback_buffers,                                  1)},
         {OpenGL::BackendCapability::Max_Transform_Feedback_Interleaved_Components, CapabilityData(&max_transform_feedback_interleaved_components,                   1)},
         {OpenGL::BackendCapability::Max_Transform_Feedback_Separate_Attribs,       CapabilityData(&max_transform_feedback_separate_attribs,                         1)},
@@ -899,6 +1018,7 @@ bool OpenGL::VKBackend::init_capabilities()
     vkgl_assert(m_capabilities.at(OpenGL::BackendCapability::Subpixel_Bits).data.u32[0]                                 >= min_subpixel_bits);
 
     /* Clamp the values to the min maxes. No need to expose more than we are obliged to handle. */
+    /*
     m_capabilities.at(OpenGL::BackendCapability::Aliased_Line_Width_Range).data.f32[0]                      = min_aliased_line_width_range[0];
     m_capabilities.at(OpenGL::BackendCapability::Aliased_Line_Width_Range).data.f32[1]                      = min_aliased_line_width_range[1];
     m_capabilities.at(OpenGL::BackendCapability::Max_3D_Texture_Size).data.u32[0]                           = min_max_3d_texture_size;
@@ -955,12 +1075,15 @@ bool OpenGL::VKBackend::init_capabilities()
     m_capabilities.at(OpenGL::BackendCapability::Smooth_Line_Width_Range).data.f32[0]                       = min_smooth_line_width_range[0];
     m_capabilities.at(OpenGL::BackendCapability::Smooth_Line_Width_Range).data.f32[1]                       = min_smooth_line_width_range[1];
     m_capabilities.at(OpenGL::BackendCapability::Subpixel_Bits).data.u32[0]                                 = min_subpixel_bits;
+    */
 
     return true;
 }
 
 void OpenGL::VKBackend::link_program(const GLuint& in_program_id)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto        frontend_program_manager_ptr = m_frontend_ptr->get_program_manager_ptr();
     SPIRVBlobID spirv_blob_id                = UINT32_MAX;
 
@@ -994,6 +1117,8 @@ void* OpenGL::VKBackend::map_buffer(const GLuint&               in_id,
                                     const GLintptr&             in_start_offset,
                                     const GLsizeiptr&           in_length)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 
     return nullptr;
@@ -1004,6 +1129,8 @@ void OpenGL::VKBackend::multi_draw_arrays(const OpenGL::DrawCallMode& in_mode,
                                           const GLsizei*              in_count_ptr,
                                           const GLsizei&              in_drawcount)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -1013,6 +1140,8 @@ void OpenGL::VKBackend::multi_draw_elements(const OpenGL::DrawCallMode&      in_
                                             const void* const*               in_indices_ptr,
                                             const GLsizei&                   in_drawcount)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -1036,7 +1165,9 @@ VkBool32 OpenGL::VKBackend::on_debug_callback_received(Anvil::DebugMessageSeveri
         }
         #else
         {
-            #error Unsupported OS
+            printf("[VKGL][VALIDATION ERROR]: " "%s" "\n", in_message_ptr);
+            
+            //#error Unsupported OS
         }
         #endif
     }
@@ -1049,6 +1180,8 @@ void OpenGL::VKBackend::on_objects_created(const OpenGL::ObjectType& in_object_t
                                            const uint32_t&           in_n_ids,
                                            const GLuint*             in_ids_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* NOTE: Called from application's rendering thread. */
 
     switch (in_object_type)
@@ -1090,8 +1223,23 @@ void OpenGL::VKBackend::on_objects_created(const OpenGL::ObjectType& in_object_t
 
         case OpenGL::ObjectType::Texture:
         {
-            vkgl_not_implemented();
+            auto gl_texture_manager_ptr = m_frontend_ptr->get_texture_manager_ptr();
 
+            for (uint32_t n_id = 0;
+                          n_id < in_n_ids;
+                        ++n_id)
+            {
+                const auto object_id            = in_ids_ptr[n_id];
+                const auto object_creation_time = gl_texture_manager_ptr->get_object_creation_time(object_id);
+                bool       result;
+
+                result = m_image_manager_ptr->create_object(object_id,
+                                                             object_creation_time,
+                                                             OpenGL::ObjectType::Texture);
+
+                vkgl_assert(result);
+            }
+            
             break;
         }
 
@@ -1099,6 +1247,35 @@ void OpenGL::VKBackend::on_objects_created(const OpenGL::ObjectType& in_object_t
         {
             /* This backend impl doesn't care */
 
+            break;
+        }
+
+        case OpenGL::ObjectType::Framebuffer:
+        {
+            /* This backend impl doesn't care */
+
+            break;
+        }
+
+        case OpenGL::ObjectType::Renderbuffer:
+        {
+            auto gl_renderbuffer_manager_ptr = m_frontend_ptr->get_renderbuffer_manager_ptr();
+
+            for (uint32_t n_id = 0;
+                          n_id < in_n_ids;
+                        ++n_id)
+            {
+                const auto object_id            = in_ids_ptr[n_id];
+                const auto object_creation_time = gl_renderbuffer_manager_ptr->get_object_creation_time(object_id);
+                bool       result;
+
+                result = m_image_manager_ptr->create_object(object_id,
+                                                             object_creation_time,
+                                                             OpenGL::ObjectType::Renderbuffer);
+
+                vkgl_assert(result);
+            }
+            
             break;
         }
 
@@ -1113,11 +1290,27 @@ void OpenGL::VKBackend::on_objects_destroyed(const OpenGL::ObjectType& in_object
                                              const uint32_t&           in_n_ids,
                                              const GLuint*             in_ids_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     switch (in_object_type)
     {
         case OpenGL::ObjectType::Buffer:
         {
-            /* This backend impl doesn't care */
+            auto gl_buffer_manager_ptr = m_frontend_ptr->get_buffer_manager_ptr();
+
+            for (uint32_t n_id = 0;
+                          n_id < in_n_ids;
+                        ++n_id)
+            {
+                const auto object_id            = in_ids_ptr[n_id];
+                const auto object_creation_time = gl_buffer_manager_ptr->get_object_creation_time(object_id);
+                bool       result;
+
+                result = m_buffer_manager_ptr->destroy_object(object_id,
+                                                             object_creation_time);
+
+                vkgl_assert(result);
+            }
 
             break;
         }
@@ -1143,8 +1336,22 @@ void OpenGL::VKBackend::on_objects_destroyed(const OpenGL::ObjectType& in_object
 
         case OpenGL::ObjectType::Texture:
         {
-            vkgl_not_implemented();
+            auto gl_texture_manager_ptr = m_frontend_ptr->get_texture_manager_ptr();
 
+            for (uint32_t n_id = 0;
+                          n_id < in_n_ids;
+                        ++n_id)
+            {
+                const auto object_id            = in_ids_ptr[n_id];
+                const auto object_creation_time = gl_texture_manager_ptr->get_object_creation_time(object_id);
+                bool       result;
+
+                result = m_image_manager_ptr->destroy_object(object_id,
+                                                             object_creation_time);
+
+                vkgl_assert(result);
+            }
+            
             break;
         }
 
@@ -1152,6 +1359,34 @@ void OpenGL::VKBackend::on_objects_destroyed(const OpenGL::ObjectType& in_object
         {
             /* This backend impl doesn't care */
 
+            break;
+        }
+
+        case OpenGL::ObjectType::Framebuffer:
+        {
+            /* This backend impl doesn't care */
+
+            break;
+        }
+
+        case OpenGL::ObjectType::Renderbuffer:
+        {
+            auto gl_renderbuffer_manager_ptr = m_frontend_ptr->get_renderbuffer_manager_ptr();
+
+            for (uint32_t n_id = 0;
+                          n_id < in_n_ids;
+                        ++n_id)
+            {
+                const auto object_id            = in_ids_ptr[n_id];
+                const auto object_creation_time = gl_renderbuffer_manager_ptr->get_object_creation_time(object_id);
+                bool       result;
+
+                result = m_image_manager_ptr->destroy_object(object_id,
+                                                             object_creation_time);
+
+                vkgl_assert(result);
+            }
+            
             break;
         }
 
@@ -1164,6 +1399,8 @@ void OpenGL::VKBackend::on_objects_destroyed(const OpenGL::ObjectType& in_object
 
 void OpenGL::VKBackend::present()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     {
         /* Submit the request to the backend thread. */
         OpenGL::CommandBaseUniquePtr cmd_ptr(new OpenGL::PresentCommand(),
@@ -1208,6 +1445,8 @@ void OpenGL::VKBackend::read_pixels(const int32_t&             in_x,
                                     const OpenGL::PixelType&   in_type,
                                     void*                      out_pixels_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -1218,11 +1457,33 @@ void OpenGL::VKBackend::renderbuffer_storage(const GLuint&                 in_id
                                              const uint32_t&               in_samples)
 
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+    auto 		gl_renderbuffer_reference_ptr = m_frontend_ptr->get_renderbuffer_manager_ptr()->acquire_current_latest_snapshot_reference(in_id);
+    const auto& gl_renderbuffer_creation_time = gl_renderbuffer_reference_ptr->get_payload().object_creation_time;
+    const auto& gl_renderbuffer_id            = gl_renderbuffer_reference_ptr->get_payload().id;
+    const auto& gl_renderbuffer_snapshot_time = gl_renderbuffer_reference_ptr->get_payload().time_marker;
+
+    auto vk_image_reference_ptr = m_image_manager_ptr->acquire_object(gl_renderbuffer_id,
+                                                                              gl_renderbuffer_creation_time,
+                                                                              gl_renderbuffer_snapshot_time);
+
+    vkgl_assert(vk_image_reference_ptr != nullptr);
+    
+    auto vk_image_ptr = vk_image_reference_ptr->get_payload().image_ptr;
+    
+    m_mem_allocator_ptr->add_image_whole(vk_image_ptr,
+    									Anvil::MemoryFeatureFlagBits::HOST_COHERENT_BIT | Anvil::MemoryFeatureFlagBits::MAPPABLE_BIT);
+    
+    
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKBackend::set_frontend_callback(const OpenGL::IContextObjectManagers* in_callback_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(in_callback_ptr != nullptr);
     vkgl_assert(m_frontend_ptr  == nullptr);
     vkgl_assert(m_scheduler_ptr == nullptr);
@@ -1247,6 +1508,16 @@ void OpenGL::VKBackend::set_frontend_callback(const OpenGL::IContextObjectManage
     if (m_buffer_manager_ptr == nullptr)
     {
         vkgl_assert(m_buffer_manager_ptr != nullptr);
+
+        goto end;
+    }
+
+    m_image_manager_ptr = OpenGL::VKImageManager::create(m_frontend_ptr,
+                                                           this);
+
+    if (m_image_manager_ptr == nullptr)
+    {
+        vkgl_assert(m_image_manager_ptr != nullptr);
 
         goto end;
     }
@@ -1284,8 +1555,10 @@ end:
     ;
 }
 
-void OpenGL::VKBackend::set_target_window(HWND in_opt_window_handle)
+void OpenGL::VKBackend::set_target_window(void* in_opt_window_handle)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* Forward the notification to swapchain manager. */
     vkgl_assert(m_swapchain_manager_ptr != nullptr);
 
@@ -1301,6 +1574,8 @@ void OpenGL::VKBackend::tex_image_1d(const GLuint&                 in_id,
                                      const OpenGL::PixelType&      in_type,
                                      const void*                   in_pixels_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -1314,6 +1589,31 @@ void OpenGL::VKBackend::tex_image_2d(const GLuint&                 in_id,
                                      const OpenGL::PixelType&      in_type,
                                      const void*                   in_pixels_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+    auto 		gl_texture_reference_ptr = m_frontend_ptr->get_texture_manager_ptr()->acquire_current_latest_snapshot_reference(in_id);
+    const auto& gl_texture_creation_time = gl_texture_reference_ptr->get_payload().object_creation_time;
+    const auto& gl_texture_id            = gl_texture_reference_ptr->get_payload().id;
+    const auto& gl_texture_snapshot_time = gl_texture_reference_ptr->get_payload().time_marker;
+
+    auto vk_image_reference_ptr = m_image_manager_ptr->acquire_object(gl_texture_id,
+                                                                              gl_texture_creation_time,
+                                                                              gl_texture_snapshot_time);
+
+    vkgl_assert(vk_image_reference_ptr != nullptr);
+    
+    auto vk_image_ptr = vk_image_reference_ptr->get_payload().image_ptr;
+    /*
+    if (in_pixels_ptr != nullptr)
+    {
+    	vk_image_ptr->write(0,
+    						0,
+    						in_pixels_ptr);
+    }
+    */
+    
+    
+    
     vkgl_not_implemented();
 }
 
@@ -1328,6 +1628,8 @@ void OpenGL::VKBackend::tex_image_3d(const GLuint&                 in_id,
                                      const OpenGL::PixelType&      in_type,
                                      const void*                   in_pixels_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -1339,6 +1641,8 @@ void OpenGL::VKBackend::tex_sub_image_1d(const GLuint&              in_id,
                                          const OpenGL::PixelType&   in_type,
                                          const void*                in_pixels)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -1352,6 +1656,28 @@ void OpenGL::VKBackend::tex_sub_image_2d(const GLuint&              in_id,
                                          const OpenGL::PixelType&   in_type,
                                          const void*                in_pixels)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+    auto 		gl_texture_reference_ptr = m_frontend_ptr->get_texture_manager_ptr()->acquire_current_latest_snapshot_reference(in_id);
+    const auto& gl_texture_creation_time = gl_texture_reference_ptr->get_payload().object_creation_time;
+    const auto& gl_texture_id            = gl_texture_reference_ptr->get_payload().id;
+    const auto& gl_texture_snapshot_time = gl_texture_reference_ptr->get_payload().time_marker;
+
+    auto vk_image_reference_ptr = m_image_manager_ptr->acquire_object(gl_texture_id,
+                                                                              gl_texture_creation_time,
+                                                                              gl_texture_snapshot_time);
+
+    vkgl_assert(vk_image_reference_ptr != nullptr);
+    
+    auto vk_image_ptr = vk_image_reference_ptr->get_payload().image_ptr;
+    /*
+    if (in_pixels_ptr != nullptr)
+    {
+    	vk_image_ptr->write(0,
+    						0,
+    						in_pixels);
+    }
+    */
     vkgl_not_implemented();
 }
 
@@ -1367,11 +1693,155 @@ void OpenGL::VKBackend::tex_sub_image_3d(const GLuint&              in_id,
                                          const OpenGL::PixelType&   in_type,
                                          const void*                in_pixels)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
+}
+
+void OpenGL::VKBackend::generate_mipmap(const GLuint&              in_id)
+{
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+    auto 		texture_reference_ptr = m_frontend_ptr->get_texture_manager_ptr()->acquire_current_latest_snapshot_reference(in_id);
+
+    vkgl_assert(texture_reference_ptr != nullptr);
+
+    OpenGL::CommandBaseUniquePtr cmd_ptr(new OpenGL::GenerateMipmapCommand(std::move(texture_reference_ptr) ),
+                                         std::default_delete<OpenGL::CommandBase>() );
+
+    vkgl_assert(cmd_ptr != nullptr);
+
+    m_scheduler_ptr->submit(std::move(cmd_ptr) );
+    
+    vkgl_not_implemented();
+}
+
+void OpenGL::VKBackend::update_uniform_data(const GLuint&              in_id,
+                        						const GLint&				in_location,
+                        						const GLsizei&				in_count,
+                        						const void*					in_data_ptr)
+{
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+    bool result 						= false;
+    uint32_t n_binding 					= UINT_MAX;
+    auto 		frontend_program_reference_ptr = m_frontend_ptr->get_program_manager_ptr()->acquire_current_latest_snapshot_reference(in_id);
+    vkgl_assert(frontend_program_reference_ptr != nullptr);
+    
+    const OpenGL::PostLinkData* post_link_data_ptr = nullptr;
+    {
+        m_frontend_ptr->get_program_manager_ptr()->get_program_post_link_data_ptr(frontend_program_reference_ptr->get_payload().id,
+        																&frontend_program_reference_ptr->get_payload().time_marker,
+        																&post_link_data_ptr);
+        vkgl_assert(post_link_data_ptr != nullptr);
+    }
+    
+    OpenGL::SPIRVBlobID spirv_id;
+    {
+        result = m_spirv_manager_ptr->get_spirv_blob_id_for_program_reference(frontend_program_reference_ptr->get_payload().id,
+        																frontend_program_reference_ptr->get_payload().time_marker,
+        																&spirv_id);
+    	vkgl_assert(result != false);
+    }
+	
+	auto uniform_resources_ptr = m_spirv_manager_ptr->get_uniform_resources(spirv_id);
+	vkgl_assert(uniform_resources_ptr != nullptr);
+	
+	int32_t elements_num = in_location + in_count > post_link_data_ptr->active_uniforms.size() ? post_link_data_ptr->active_uniforms.size() - in_location
+																					: in_count;
+	vkgl_assert(in_location < post_link_data_ptr->active_uniforms.size() );
+	
+	if (!(elements_num > 0) )
+	{
+    	return;
+    }
+	
+	{
+		auto& current_active_uniform = post_link_data_ptr->active_uniforms.at(in_location);
+    	{
+			if (current_active_uniform.binding_point >= 0)
+			{
+				n_binding = current_active_uniform.binding_point;
+			}
+			else if (current_active_uniform.uniform_block_index >= 0)
+			{
+				auto& current_active_uniform_block = post_link_data_ptr->active_uniform_blocks.at(current_active_uniform.uniform_block_index);
+				
+				n_binding = current_active_uniform_block.binding_point;
+    		}
+    		vkgl_assert(n_binding < uniform_resources_ptr->size() );
+        }
+	}
+	
+	
+	auto is_sampler = uniform_resources_ptr->at(n_binding).is_sampler;
+	if (is_sampler)
+	{
+    	auto& samplers = uniform_resources_ptr->at(n_binding).samplers;
+    	elements_num = std::min((int)elements_num,
+    							(int)samplers.size() );
+    	
+		int32_t* texture_units = new int32_t[elements_num];
+		
+		memcpy(texture_units,
+				in_data_ptr,
+				elements_num);
+		
+		for (int n = 0;
+				n < elements_num;
+				++n)
+		{
+			auto& current_sampler = samplers.at(n);
+			
+			current_sampler.texture_unit = texture_units[n];
+		}
+		
+		delete[] texture_units;
+	}
+	else
+	{
+        auto 		frontend_state_manager_ptr = m_frontend_ptr->get_state_manager_ptr();
+        auto 		frontend_buffer_manager_ptr = m_frontend_ptr->get_buffer_manager_ptr();
+    	vkgl_assert(frontend_state_manager_ptr != nullptr);
+    	vkgl_assert(frontend_buffer_manager_ptr != nullptr);
+    	
+    	auto& buffer_blocks 		= uniform_resources_ptr->at(n_binding).buffer_blocks;
+    	auto& current_buffer_block = buffer_blocks.at(0);
+    	auto& buffers 				= current_buffer_block.buffers;
+    	
+    	auto& current_buffer 		= buffers.at(post_link_data_ptr->index_to_ub_and_uniform_index_pair.at(in_location).second);
+    	elements_num = std::min((int)elements_num,
+    							(int)current_buffer.buffer_elements_num);
+    	
+		auto buffer_element_size = current_buffer.buffer_element_size;
+		auto buffer_offset 		= current_buffer.buffer_offset;
+		
+		{
+            GLuint new_gl_uniform_buffer 	= current_buffer_block.gl_buffer_reference_ptr->get_payload().id;
+        	GLuint previous_gl_uniform_buffer = 0;
+        	if (frontend_state_manager_ptr->get_bound_buffer_object(OpenGL::BufferTarget::Uniform_Buffer) != nullptr)
+        	{
+        		previous_gl_uniform_buffer = frontend_state_manager_ptr->get_bound_buffer_object(OpenGL::BufferTarget::Uniform_Buffer)->get_payload().id;
+        	}
+        	
+    		glBindBuffer(GL_UNIFORM_BUFFER,
+    					new_gl_uniform_buffer);
+    		
+    		glBufferSubData(GL_UNIFORM_BUFFER,
+    						buffer_offset,
+    						(buffer_element_size * elements_num),
+    						in_data_ptr);
+    		
+    		glBindBuffer(GL_UNIFORM_BUFFER,
+    					previous_gl_uniform_buffer);
+		}
+	}
 }
 
 bool OpenGL::VKBackend::unmap_buffer(const GLuint& in_id)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 
     return false;
@@ -1379,6 +1849,74 @@ bool OpenGL::VKBackend::unmap_buffer(const GLuint& in_id)
 
 void OpenGL::VKBackend::validate_program(const GLuint& in_program_id)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
+}
+
+bool OpenGL::VKBackend::update_texture_reference_for_uniform_resources(const OpenGL::SPIRVBlobID& in_spirv_id)
+{
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+    bool result = false;
+    
+    auto uniform_resources_ptr = m_spirv_manager_ptr->get_uniform_resources(in_spirv_id);
+    if (uniform_resources_ptr->size() > 0)
+    {
+        auto state_manager_ptr   = m_frontend_ptr->get_state_manager_ptr();
+        auto state_reference_ptr = state_manager_ptr->acquire_current_latest_snapshot_reference();
+        vkgl_assert(state_reference_ptr != nullptr);
+        
+        auto frontend_context_state_ptr = state_manager_ptr->get_state(state_reference_ptr->get_payload().time_marker);
+        vkgl_assert(frontend_context_state_ptr != nullptr);
+        
+    	for (uint32_t n_uniform_resource = 0;
+    				n_uniform_resource < uniform_resources_ptr->size();
+    				++n_uniform_resource)
+    	{
+    		auto& current_uniform_resource = uniform_resources_ptr->at(n_uniform_resource);
+    		
+    		auto& is_sampler 	= current_uniform_resource.is_sampler;
+    		auto& n_binding 	= current_uniform_resource.binding;
+    		
+    		if (n_binding == UINT_MAX)
+    		{
+        		continue;
+    		}
+    		
+    		if (is_sampler)
+    		{
+    			for (int i = 0;
+    					i < current_uniform_resource.samplers.size();
+    					i++)
+    			{
+    				auto& current_sampler = current_uniform_resource.samplers.at(i);
+    				
+        			auto texture_unit = 	current_sampler.texture_unit;
+        			//auto image_view_ptr 	= current_sampler.image_view_ptr;
+        			//auto sampler_ptr 		= current_sampler.sampler_ptr;
+        			
+        			auto texture_unit_state_ptr = frontend_context_state_ptr->texture_unit_to_state_ptr_map.at(texture_unit).get();
+        			vkgl_assert(texture_unit_state_ptr != nullptr);
+        			
+        			auto texture_id = texture_unit_state_ptr->binding_2d;
+        			vkgl_assert(texture_id != 0);
+        			
+        			auto& gl_texture_reference_ptr = current_sampler.gl_texture_reference_ptr;
+        			gl_texture_reference_ptr.reset();
+        			
+        			gl_texture_reference_ptr = m_frontend_ptr->get_texture_manager_ptr()->acquire_current_latest_snapshot_reference(texture_id);
+        			vkgl_assert(current_sampler.gl_texture_reference_ptr != nullptr);
+    			}
+    		}
+    		else
+    		{
+    			continue;
+    		}
+    	}
+    }
+    
+    result = true;
+    return result;
 }
 

@@ -27,6 +27,15 @@ namespace OpenGL
                                          const OpenGL::TextureProperty&      in_property,
                                          const OpenGL::GetSetArgumentType&   in_arg_type,
                                          void*                               out_arg_value_ptr) const;
+		bool get_texture_target			(const GLuint&                     in_id,
+										OpenGL::TextureTarget*		out_target_ptr) const;
+        bool get_texture_state_ptr		(const GLuint&                     in_id,
+                                  		const OpenGL::TimeMarker*         in_opt_time_marker_ptr,
+                                  		const OpenGL::TextureState**       out_state_ptr) const;
+        bool get_texture_mip_state_ptr(const GLuint&                     in_id,
+                                  		const OpenGL::TimeMarker*         in_opt_time_marker_ptr,
+                                  		uint32_t*         					out_n_layers_ptr,
+                                  		const std::vector<TextureMipStateUniquePtr>** out_states_ptr) const;
         void set_texture_parameter      (const GLuint&                       in_id,
                                          const OpenGL::TextureProperty&      in_property,
                                          const OpenGL::GetSetArgumentType&   in_arg_type,
@@ -69,7 +78,7 @@ namespace OpenGL
 
             void set_from_texture_ptr(const Texture* in_texture_ptr);
 
-            Texture           ()                          = default;
+            Texture           ();
             Texture           (const Texture& in_texture);
             Texture& operator=(const Texture& in_texture);
         } Texture;

@@ -37,10 +37,11 @@ namespace OpenGL
        const OpenGL::GLBufferReference*       get_bound_buffer_object      (const OpenGL::BufferTarget&      in_target) const;
        const OpenGL::GLBufferReference*       get_bound_buffer_object      (const OpenGL::BufferTarget&      in_target,
                                                                             const uint32_t&                  in_index) const;
-       const OpenGL::GLRenderbufferReference* get_bound_framebuffer_object (const OpenGL::FramebufferTarget& in_target) const;
+       const OpenGL::GLFramebufferReference* get_bound_framebuffer_object (const OpenGL::FramebufferTarget& in_target) const;
        const OpenGL::GLRenderbufferReference* get_bound_renderbuffer_object() const;
        const OpenGL::GLVAOReference*          get_bound_vertex_array_object() const;
 
+       void set_error						(const OpenGL::ErrorCode&				in_error_code);
        void set_bound_buffer_object      (const OpenGL::BufferTarget&              in_target,
                                           OpenGL::GLBufferReferenceUniquePtr       in_buffer_reference_ptr);
        void set_bound_buffer_object      (const OpenGL::BufferTarget&              in_target,

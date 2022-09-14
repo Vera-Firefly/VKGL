@@ -152,14 +152,18 @@ namespace OpenGL
                 {
                     set_object_status(in_id,
                                       Status::Alive);
+                	result = true;
+                }
+                else if (object_status == Status::Alive)
+                {
+                	result = true;
                 }
                 else
                 {
-                    vkgl_assert(object_status == Status::Alive);
+                	result = false;
                 }
             }
 
-            result = true;
             return result;
         }
 
@@ -191,11 +195,19 @@ namespace OpenGL
         ObjectReferenceUniquePtrType acquire_current_latest_snapshot_reference(const GLuint& in_id)
         {
             /* NOTE: Must only be called from rendering context's thread */
-            ObjectReferenceUniquePtrType result_ptr;
+            ObjectReferenceUniquePtrType result_ptr(nullptr);
 
-            result_ptr = acquire_reference(in_id,
-                                           get_general_object_props_ptr(in_id)->snapshot_manager_ptr->get_last_modified_time() );
-
+            auto object_ptr = get_general_object_props_ptr(in_id);
+            if (object_ptr != nullptr)
+            {
+                result_ptr = acquire_reference(in_id,
+                                               object_ptr->snapshot_manager_ptr->get_last_modified_time() );
+            }
+            else
+            {
+            	vkgl_assert(object_ptr != nullptr);
+            }
+            
             vkgl_assert(result_ptr != nullptr);
 
             return result_ptr;
@@ -270,24 +282,33 @@ namespace OpenGL
 
             {
                 std::unique_lock<std::mutex> lock      (m_mutex);
-                auto                         object_ptr(m_object_ptrs.at(in_id).get() );
+                GeneralObjectProps*                 object_ptr(nullptr);
+                auto                         object_iterator(m_object_ptrs.find(in_id) );
+                
+                if (object_iterator != m_object_ptrs.end() )
+                {
+                	object_ptr = object_iterator->second.get();
+                }
 
                 vkgl_assert(object_ptr != nullptr);
-
-                #if defined(_DEBUG)
+                if (object_ptr != nullptr)
                 {
-                    const auto& object_status = object_ptr->status;
+                    #if defined(_DEBUG)
+                    {
+                        const auto& object_status = object_ptr->status;
+    
+                        vkgl_assert(object_status != Status::Deleted_References_Pending &&
+                                    object_status != Status::Unknown);
+                    }
+                    #endif
 
-                    vkgl_assert(object_status != Status::Deleted_References_Pending &&
-                                object_status != Status::Unknown);
+                    result_ptr = object_ptr->snapshot_manager_ptr->acquire_reference(
+                        OpenGL::GLPayload(in_id,
+                                          in_time_marker,
+                                          object_ptr->creation_time) );
+    
                 }
-                #endif
-
-                result_ptr = object_ptr->snapshot_manager_ptr->acquire_reference(
-                    OpenGL::GLPayload(in_id,
-                                      in_time_marker,
-                                      object_ptr->creation_time) );
-
+                
                 if (result_ptr == nullptr)
                 {
                     vkgl_assert(result_ptr != nullptr);
@@ -304,7 +325,17 @@ namespace OpenGL
         {
             GeneralObjectProps* result_ptr     = nullptr;
             const auto          object_iterator = m_object_ptrs.find(in_id);
-
+vkgl_printf("line = %d file = %s", __LINE__, __FILE__);
+vkgl_printf("in_id = %d", in_id);
+vkgl_printf("m_object_ptrs.size() = %d", m_object_ptrs.size() );
+vkgl_printf("&m_object_ptrs = %p", &m_object_ptrs);
+vkgl_printf("this = %p", this);
+{
+	for (auto& current_object : m_object_ptrs)
+	{
+		vkgl_printf("current_object.first = %d", current_object.first);
+	}
+}
             vkgl_assert(object_iterator != m_object_ptrs.end() );
             if (object_iterator != m_object_ptrs.end() )
             {
@@ -371,8 +402,12 @@ namespace OpenGL
                 goto end;
             }
 
+            m_object_ptrs.clear();
+            
             if (m_expose_default_object)
             {
+                vkgl_assert(m_first_valid_nondefault_id != 0);
+
                 /* Instantiate the default object. .*/
                 result = insert_object(0 /* in_id */);
                 vkgl_assert(result);
@@ -532,7 +567,17 @@ namespace OpenGL
         {
             GeneralObjectProps* result_ptr     = nullptr;
             const auto          object_iterator = m_object_ptrs.find(in_id);
-
+vkgl_printf("line = %d file = %s", __LINE__, __FILE__);
+vkgl_printf("in_id = %d", in_id);
+vkgl_printf("m_object_ptrs.size() = %d", m_object_ptrs.size() );
+vkgl_printf("&m_object_ptrs = %p", &m_object_ptrs);
+vkgl_printf("this = %p", this);
+{
+	for (auto& current_object : m_object_ptrs)
+	{
+		vkgl_printf("current_object.first = %d", current_object.first);
+	}
+}
             vkgl_assert(object_iterator != m_object_ptrs.end() );
             if (object_iterator != m_object_ptrs.end() )
             {

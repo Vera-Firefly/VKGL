@@ -113,6 +113,8 @@ namespace OpenGL
             OpenGL::VKFrameGraphNodeInfoUniquePtr    m_info_ptr;
 
             const OpenGL::ClearBufferBits& m_buffers_to_clear;
+
+            std::vector<OpenGL::VKImageReferenceUniquePtr> m_backend_image_reference_ptrs;
         };
     };
 };

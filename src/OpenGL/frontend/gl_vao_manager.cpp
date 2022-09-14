@@ -12,6 +12,8 @@ OpenGL::GLVAOManager::VAO::VAO(const VAO&                    in_vao,
                                const bool&                   in_convert_from_proxy_to_nonproxy,
                                const IContextObjectManagers* in_frontend_object_managers_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vao_ptr.reset(
         new OpenGL::VertexArrayObjectState(*in_vao.vao_ptr)
     );
@@ -44,6 +46,8 @@ OpenGL::GLVAOManager::VAO::VAO(const VAO&                    in_vao,
 
 OpenGL::GLVAOManager::VAO::VAO(const OpenGL::IGLLimits* in_limits_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(in_limits_ptr != nullptr);
 
     vao_ptr.reset(
@@ -69,11 +73,15 @@ OpenGL::GLVAOManager::GLVAOManager(const IGLLimits*              in_limits_ptr,
      m_frontend_object_managers_ptr(in_frontend_object_managers_ptr),
      m_limits_ptr                  (in_limits_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /*  Stub */
 }
 
 OpenGL::GLVAOManager::~GLVAOManager()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* Stub - everything is handled by the base class. */
 }
 
@@ -102,6 +110,8 @@ void OpenGL::GLVAOManager::copy_internal_data_object(const void* in_src_ptr,
 OpenGL::GLVAOManagerUniquePtr OpenGL::GLVAOManager::create(const IGLLimits*              in_limits_ptr,
                                                            const IContextObjectManagers* in_frontend_object_managers_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     OpenGL::GLVAOManagerUniquePtr result_ptr;
 
     result_ptr.reset(new GLVAOManager(in_limits_ptr,
@@ -114,10 +124,15 @@ OpenGL::GLVAOManagerUniquePtr OpenGL::GLVAOManager::create(const IGLLimits*     
         goto end;
     }
 
-    if (!result_ptr->init() )
+    if (!result_ptr->init())
     {
         vkgl_assert_fail();
 
+        result_ptr.reset();
+    }
+
+    if (!result_ptr->mark_id_as_alive(0) )
+    {
         result_ptr.reset();
     }
 
@@ -142,6 +157,8 @@ bool OpenGL::GLVAOManager::get_element_array_buffer_binding(const uint32_t&     
                                                             const OpenGL::TimeMarker*   in_opt_time_marker_ptr,
                                                             GLBufferReferenceUniquePtr* out_result_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     bool result = false;
 
     {
@@ -173,6 +190,8 @@ bool OpenGL::GLVAOManager::get_vaa_property(const GLuint&                       
                                             const OpenGL::GetSetArgumentType&     in_dst_type,
                                             void*                                 out_result_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     bool                       result        = false;
     const void*                src_data_ptr  = nullptr;
     OpenGL::GetSetArgumentType src_data_type = OpenGL::GetSetArgumentType::Unknown;
@@ -246,6 +265,8 @@ bool OpenGL::GLVAOManager::get_vaa_state_copy(const GLuint&              in_vao_
                                               const uint32_t&            in_n_vao_vaa,
                                               VertexAttributeArrayState* out_result_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     bool result = false;
 
     {
@@ -289,6 +310,8 @@ bool OpenGL::GLVAOManager::get_vao_state_ptr(const GLuint&                      
                                              const OpenGL::TimeMarker*              in_opt_time_marker_ptr,
                                              const OpenGL::VertexArrayObjectState** out_vao_state_ptr_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     std::unique_lock<std::mutex> lock         (m_mutex);
     bool                         result       (false);
     auto                         vao_props_ptr(get_vao_ptr(in_vao_id,
@@ -310,6 +333,8 @@ end:
 bool OpenGL::GLVAOManager::set_element_array_buffer_binding(const GLuint&              in_vao_id,
                                                             GLBufferReferenceUniquePtr in_new_buffer_reference_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     bool result = false;
 
     {
@@ -345,6 +370,8 @@ bool OpenGL::GLVAOManager::set_vaa_state(const GLuint&                    in_vao
                                          const uint32_t&                  in_n_vao_vaa,
                                          const VertexAttributeArrayState& in_state)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     bool result = false;
 
     {

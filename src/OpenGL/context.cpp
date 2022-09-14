@@ -12,8 +12,14 @@
 #include "OpenGL/frontend/gl_renderbuffer_manager.h"
 #include "OpenGL/frontend/gl_shader_manager.h"
 #include "OpenGL/frontend/gl_vao_manager.h"
+#include "OpenGL/frontend/gl_compatibility_manager.h"
+#include "OpenGL/backend/vk_buffer_manager.h"
+#include "OpenGL/backend/vk_spirv_manager.h"
+#include "OpenGL/backend/vk_renderpass_manager.h"
+#include "OpenGL/backend/vk_framebuffer_manager.h"
+#include "OpenGL/backend/vk_image_manager.h"
 #include "OpenGL/utils_enum.h"
-
+/*
 #include "OpenGL/entrypoints/GL1.0/gl_blend_func.h"
 #include "OpenGL/entrypoints/GL1.0/gl_clear.h"
 #include "OpenGL/entrypoints/GL1.0/gl_clear_color.h"
@@ -432,7 +438,7 @@
 #include "OpenGL/entrypoints/GL_ARB_vertex_shader/gl_bind_attrib_location_arb.h"
 #include "OpenGL/entrypoints/GL_ARB_vertex_shader/gl_get_active_attrib_arb.h"
 #include "OpenGL/entrypoints/GL_ARB_vertex_shader/gl_get_attrib_location_arb.h"
-
+*/
 #include <algorithm>
 #include <sstream>
 
@@ -441,21 +447,29 @@
 #endif
 
 OpenGL::Context::Context(const VKGL::IWSIContext*     in_wsi_context_ptr,
+                         const OpenGL::IBackend*		in_backend_ptr,
                          OpenGL::IBackendGLCallbacks* in_backend_gl_callbacks_ptr,
                          const IBackendCapabilities*  in_backend_caps_ptr)
     :m_backend_caps_ptr        (in_backend_caps_ptr),
      m_backend_gl_callbacks_ptr(in_backend_gl_callbacks_ptr),
+     m_backend_ptr				(in_backend_ptr),
      m_wsi_context_ptr         (in_wsi_context_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* Stub */
 }
 
 OpenGL::Context::~Context()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* Before continuing, flush any outstanding commands & wait till they complete GPU-side */
     finish();
 
     /* Go on.. */
+    m_gl_compatibility_manager_ptr.reset();
+    
     m_gl_state_manager_ptr.reset();
 
     m_gl_buffer_manager_ptr.reset      ();
@@ -472,10 +486,12 @@ OpenGL::Context::~Context()
 void OpenGL::Context::attach_shader(const GLuint& in_program,
                                     const GLuint& in_shader)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_program_manager_ptr != nullptr);
     vkgl_assert(m_gl_shader_manager_ptr  != nullptr);
 
-    auto shader_reference_ptr = m_gl_shader_manager_ptr->acquire_always_latest_snapshot_reference(in_shader);
+    auto shader_reference_ptr = m_gl_shader_manager_ptr->acquire_current_latest_snapshot_reference(in_shader);
 
     if (shader_reference_ptr == nullptr)
     {
@@ -497,12 +513,16 @@ end:
 void OpenGL::Context::begin_conditional_render(const GLuint&                        in_occlusion_query_id,
                                                const OpenGL::ConditionalRenderMode& in_mode)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::Context::begin_query(const OpenGL::QueryTarget& in_target,
                                   const uint32_t&            in_id)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
 #if 0
     vkgl_assert(m_gl_query_manager_ptr != nullptr);
 
@@ -515,6 +535,8 @@ void OpenGL::Context::begin_query(const OpenGL::QueryTarget& in_target,
 
 void OpenGL::Context::begin_transform_feedback(const OpenGL::TransformFeedbackPrimitiveMode& in_primitive_mode)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -522,6 +544,8 @@ void OpenGL::Context::bind_attrib_location(const GLuint& in_program,
                                            const GLuint& in_index,
                                            const GLchar* in_name)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_program_manager_ptr != nullptr);
 
     if (!m_gl_program_manager_ptr->cache_attribute_location_binding(in_program,
@@ -533,13 +557,19 @@ void OpenGL::Context::bind_attrib_location(const GLuint& in_program,
 }
 
 void OpenGL::Context::bind_buffer(const OpenGL::BufferTarget& in_target,
-                                  const uint32_t&             in_id)
+                                  const uint32_t&             in_buffer)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_buffer_manager_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr  != nullptr);
-
-    auto buffer_reference_ptr = m_gl_buffer_manager_ptr->acquire_always_latest_snapshot_reference(in_id);
-
+vkgl_printf("line = %d file = %s", __LINE__, __FILE__);
+vkgl_printf("in_target = %d", in_target);
+vkgl_printf("in_buffer = %d", in_buffer);
+	m_gl_buffer_manager_ptr->mark_id_as_alive(in_buffer);
+    vkgl_printf("line = %d file = %s", __LINE__, __FILE__);
+    auto buffer_reference_ptr = m_gl_buffer_manager_ptr->acquire_current_latest_snapshot_reference(in_buffer);
+    vkgl_printf("line = %d file = %s", __LINE__, __FILE__);
     if (buffer_reference_ptr == nullptr)
     {
         vkgl_assert(buffer_reference_ptr != nullptr);
@@ -560,9 +590,9 @@ void OpenGL::Context::bind_buffer(const OpenGL::BufferTarget& in_target,
                                                             std::move(buffer_reference_ptr) );
         }
 
-        if (in_id != 0)
+        if (in_buffer != 0)
         {
-            m_gl_buffer_manager_ptr->on_buffer_bound_to_buffer_target(in_id,
+            m_gl_buffer_manager_ptr->on_buffer_bound_to_buffer_target(in_buffer,
                                                                       in_target);
         }
     }
@@ -572,13 +602,15 @@ void OpenGL::Context::bind_buffer_base(const OpenGL::BufferTarget& in_target,
                                        const GLuint&               in_index,
                                        const GLuint&               in_buffer)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_buffer_manager_ptr != nullptr);
 
-    return bind_buffer_range(in_target,
-                             in_index,
-                             in_buffer,
-                             0, /* in_offset */
-                             m_gl_buffer_manager_ptr->get_buffer_size(in_buffer,
+    bind_buffer_range(in_target,
+                     in_index,
+                     in_buffer,
+                     0, /* in_offset */
+                     m_gl_buffer_manager_ptr->get_buffer_size(in_buffer,
                                                                       nullptr /* in_opt_time_marker_ptr */) );
 }
 
@@ -588,21 +620,43 @@ void OpenGL::Context::bind_buffer_range(const OpenGL::BufferTarget& in_target,
                                         const GLintptr&             in_offset,
                                         const GLsizeiptr&           in_size)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_buffer_manager_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr  != nullptr);
 
-    vkgl_assert_fail(); //< TODO: merge me with bind_buffer();
+    m_gl_buffer_manager_ptr->mark_id_as_alive(in_buffer);
 
-    m_gl_state_manager_ptr->set_bound_buffer_object(in_target,
-                                                    in_index,
-                                                    m_gl_buffer_manager_ptr->acquire_always_latest_snapshot_reference(in_buffer),
-                                                    in_offset,
-                                                    in_size);
-
-    if (in_buffer != 0)
+    auto buffer_reference_ptr = m_gl_buffer_manager_ptr->acquire_current_latest_snapshot_reference(in_buffer);
+    
+    if (buffer_reference_ptr == nullptr)
     {
-        m_gl_buffer_manager_ptr->on_buffer_bound_to_buffer_target(in_buffer,
-                                                                  in_target);
+        vkgl_assert(buffer_reference_ptr != nullptr);
+    }
+    else
+    {
+        if (in_target == OpenGL::BufferTarget::Element_Array_Buffer)
+        {
+            const auto bound_vao_reference_ptr = m_gl_state_manager_ptr->get_bound_vertex_array_object();
+            vkgl_assert(bound_vao_reference_ptr != nullptr);
+
+            m_gl_vao_manager_ptr->set_element_array_buffer_binding(bound_vao_reference_ptr->get_payload().id,
+                                                                   std::move(buffer_reference_ptr) );
+        }
+        else
+        {
+            m_gl_state_manager_ptr->set_bound_buffer_object(in_target,
+                                                            in_index,
+                                                            std::move(buffer_reference_ptr),
+                                                            in_offset,
+                                                            in_size);
+        }
+
+        if (in_buffer != 0)
+        {
+            m_gl_buffer_manager_ptr->on_buffer_bound_to_buffer_target(in_buffer,
+                                                                      in_target);
+        }
     }
 }
 
@@ -610,6 +664,8 @@ void OpenGL::Context::bind_frag_data_location(const GLuint& in_program,
                                               const GLuint& in_color,
                                               const GLchar* in_name)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_program_manager_ptr != nullptr);
 
     if (!m_gl_program_manager_ptr->cache_frag_data_location(in_program,
@@ -623,42 +679,95 @@ void OpenGL::Context::bind_frag_data_location(const GLuint& in_program,
 void OpenGL::Context::bind_framebuffer(const OpenGL::FramebufferTarget& in_target,
                                        const GLuint&                    in_framebuffer)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_framebuffer_manager_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr       != nullptr);
 
-    m_gl_state_manager_ptr->set_bound_framebuffer_object(in_target,
-                                                         m_gl_framebuffer_manager_ptr->acquire_always_latest_snapshot_reference(in_framebuffer) );
+    m_gl_framebuffer_manager_ptr->mark_id_as_alive(in_framebuffer);
+
+	auto fb_handle_ptr = m_gl_framebuffer_manager_ptr->acquire_current_latest_snapshot_reference(in_framebuffer);
+	
+    if (fb_handle_ptr == nullptr)
+    {
+        vkgl_assert(fb_handle_ptr != nullptr);
+    }
+    else
+    {
+        m_gl_state_manager_ptr->set_bound_framebuffer_object(in_target,
+                                                             std::move(fb_handle_ptr) );
+    	
+    	{
+    		if (in_framebuffer == 0)
+    		{
+            	set_draw_buffer(OpenGL::DrawBuffer::Back);
+            }
+            else
+            {
+            	set_draw_buffer(OpenGL::DrawBuffer::Color_Attachment0);
+            }
+    	}
+	}
 }
 
 void OpenGL::Context::bind_renderbuffer(const OpenGL::RenderbufferTarget& in_target,
                                         const GLuint&                     in_renderbuffer)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_renderbuffer_manager_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr        != nullptr);
 
-    m_gl_state_manager_ptr->set_bound_renderbuffer_object(m_gl_renderbuffer_manager_ptr->acquire_always_latest_snapshot_reference(in_renderbuffer) );
+    m_gl_renderbuffer_manager_ptr->mark_id_as_alive(in_renderbuffer);
+
+	auto rb_handle_ptr = m_gl_renderbuffer_manager_ptr->acquire_current_latest_snapshot_reference(in_renderbuffer);
+	
+    if (rb_handle_ptr == nullptr)
+    {
+        vkgl_assert(rb_handle_ptr != nullptr);
+    }
+    else
+    {
+        m_gl_state_manager_ptr->set_bound_renderbuffer_object(std::move(rb_handle_ptr) );
+    }
 }
 
 void OpenGL::Context::bind_texture(const OpenGL::TextureTarget& in_target,
                                    const uint32_t&              in_texture)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
+
+	m_gl_texture_manager_ptr->mark_id_as_alive(in_texture);
 
     m_gl_state_manager_ptr->set_texture_binding(m_gl_state_manager_ptr->get_state()->active_texture_unit,
                                                 in_target,
                                                 in_texture);
 
-    m_gl_texture_manager_ptr->on_texture_bound_to_target(in_texture,
+	if (in_texture != 0)
+	{
+        m_gl_texture_manager_ptr->on_texture_bound_to_target(in_texture,
                                                          in_target);
+	}
 }
 
 void OpenGL::Context::bind_vertex_array(const GLuint& in_array)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     m_gl_vao_manager_ptr->mark_id_as_alive(in_array);
 
-    auto vao_handle_ptr = m_gl_vao_manager_ptr->acquire_always_latest_snapshot_reference(in_array);
+    auto vao_handle_ptr = m_gl_vao_manager_ptr->acquire_current_latest_snapshot_reference(in_array);
 
-    m_gl_state_manager_ptr->set_bound_vertex_array_object(std::move(vao_handle_ptr) );
+    if (vao_handle_ptr == nullptr)
+    {
+        vkgl_assert(vao_handle_ptr != nullptr);
+    }
+    else
+    {
+        m_gl_state_manager_ptr->set_bound_vertex_array_object(std::move(vao_handle_ptr) );
+    }
 }
 
 void OpenGL::Context::blit_framebuffer(const GLint&                in_src_x0,
@@ -672,6 +781,8 @@ void OpenGL::Context::blit_framebuffer(const GLint&                in_src_x0,
                                        const OpenGL::BlitMaskBits& in_mask,
                                        const OpenGL::BlitFilter&   in_filter)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -680,6 +791,8 @@ void OpenGL::Context::buffer_data(const OpenGL::BufferTarget& in_target,
                                   const void*                 in_data_ptr,
                                   const OpenGL::BufferUsage&  in_usage)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     GLuint buffer_id = 0;
 
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
@@ -721,6 +834,8 @@ void OpenGL::Context::buffer_sub_data(const OpenGL::BufferTarget& in_target,
                                       const GLsizeiptr&           in_size,
                                       const void*                 in_data_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
     vkgl_assert(m_gl_buffer_manager_ptr    != nullptr);
     vkgl_assert(m_gl_state_manager_ptr     != nullptr);
@@ -738,11 +853,13 @@ OpenGL::FramebufferStatus OpenGL::Context::check_framebuffer_status(const OpenGL
 {
     vkgl_not_implemented();
 
-    return OpenGL::FramebufferStatus::Unknown;
+    return OpenGL::FramebufferStatus::Complete;
 }
 
 void OpenGL::Context::clear(const OpenGL::ClearBufferBits& in_buffers_to_clear)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
 
     m_backend_gl_callbacks_ptr->clear(in_buffers_to_clear);
@@ -756,6 +873,8 @@ void OpenGL::Context::clear_buffer(const OpenGL::ClearBuffer&        in_buffer,
                                    const GLfloat&                    in_depth,
                                    const GLint&                      in_stencil)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -763,6 +882,8 @@ OpenGL::WaitResult OpenGL::Context::client_wait_sync(const GLsync&              
                                                      const OpenGL::WaitSyncBits& in_flags,
                                                      const GLuint64&             in_timeout)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 
     return OpenGL::WaitResult::Unknown;
@@ -770,6 +891,8 @@ OpenGL::WaitResult OpenGL::Context::client_wait_sync(const GLsync&              
 
 void OpenGL::Context::compile_shader(const GLuint& in_shader)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
 
     m_backend_gl_callbacks_ptr->compile_shader(in_shader);
@@ -783,7 +906,9 @@ void OpenGL::Context::compressed_tex_image_1d(const OpenGL::TextureTarget&  in_t
                                               const GLsizei                 in_image_size,
                                               const void*                   in_data)
 {
-#if 0
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+#if true
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr     != nullptr);
 
@@ -812,7 +937,9 @@ void OpenGL::Context::compressed_tex_image_2d(const OpenGL::TextureTarget&  in_t
                                               const GLsizei&                in_image_size,
                                               const void*                   in_data)
 {
-#if 0
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+#if true
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr     != nullptr);
 
@@ -843,7 +970,9 @@ void OpenGL::Context::compressed_tex_image_3d(const OpenGL::TextureTarget&  in_t
                                               const GLsizei&                in_image_size,
                                               const void*                   in_data)
 {
-#if 0
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+#if true
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr     != nullptr);
 
@@ -873,7 +1002,9 @@ void OpenGL::Context::compressed_tex_sub_image_1d(const OpenGL::TextureTarget& i
                                                   const GLsizei&               in_image_size,
                                                   const void*                  in_data)
 {
-#if 0
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+#if true
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr     != nullptr);
 
@@ -903,7 +1034,9 @@ void OpenGL::Context::compressed_tex_sub_image_2d(const OpenGL::TextureTarget& i
                                                   const GLsizei&               in_image_size,
                                                   const void*                  in_data)
 {
-#if 0
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+#if true
     vkgl_assert(m_gl_state_manager_ptr     != nullptr);
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
 
@@ -937,7 +1070,9 @@ void OpenGL::Context::compressed_tex_sub_image_3d(const OpenGL::TextureTarget& i
                                                   const GLsizei&               in_image_size,
                                                   const void*                  in_data)
 {
-#if 0
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+#if true
     vkgl_assert(m_gl_state_manager_ptr     != nullptr);
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
 
@@ -967,6 +1102,8 @@ void OpenGL::Context::copy_buffer_sub_data(const OpenGL::BufferTarget& in_read_t
                                            const GLintptr&             in_write_offset,
                                            const GLsizeiptr&           in_size)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr     != nullptr);
 
@@ -988,6 +1125,8 @@ void OpenGL::Context::copy_tex_image_1d(const OpenGL::TextureTarget&  in_target,
                                         const GLsizei&                in_width,
                                         const GLint&                  in_border)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr     != nullptr);
 
@@ -1025,6 +1164,8 @@ void OpenGL::Context::copy_tex_image_2d(const OpenGL::TextureTarget&  in_target,
                                         const GLsizei&                in_height,
                                         const GLint&                  in_border)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr     != nullptr);
 
@@ -1061,7 +1202,9 @@ void OpenGL::Context::copy_tex_sub_image_1d(const OpenGL::TextureTarget& in_targ
                                             const GLint&                 in_y,
                                             const GLsizei&               in_width)
 {
-#if 0
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+#if true
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr     != nullptr);
 
@@ -1089,7 +1232,9 @@ void OpenGL::Context::copy_tex_sub_image_2d(const OpenGL::TextureTarget& in_targ
                                             const GLsizei&               in_width,
                                             const GLsizei&               in_height)
 {
-#if 0
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+#if true
     vkgl_assert(m_gl_state_manager_ptr     != nullptr);
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
 
@@ -1120,7 +1265,9 @@ void OpenGL::Context::copy_tex_sub_image_3d(const OpenGL::TextureTarget& in_targ
                                             const GLsizei&               in_width,
                                             const GLsizei&               in_height)
 {
-#if 0
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+#if true
     vkgl_assert(m_gl_state_manager_ptr     != nullptr);
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
 
@@ -1143,13 +1290,17 @@ void OpenGL::Context::copy_tex_sub_image_3d(const OpenGL::TextureTarget& in_targ
 }
 
 OpenGL::ContextUniquePtr OpenGL::Context::create(const VKGL::IWSIContext*     in_wsi_context_ptr,
+                                                 const OpenGL::IBackend*		in_backend_ptr,
                                                  OpenGL::IBackendGLCallbacks* in_backend_gl_callbacks_ptr,
                                                  const IBackendCapabilities*  in_backend_caps_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     OpenGL::ContextUniquePtr result_ptr;
 
     result_ptr.reset(
         new OpenGL::Context(in_wsi_context_ptr,
+                            in_backend_ptr,
                             in_backend_gl_callbacks_ptr,
                             in_backend_caps_ptr)
     );
@@ -1167,6 +1318,8 @@ OpenGL::ContextUniquePtr OpenGL::Context::create(const VKGL::IWSIContext*     in
 
 GLuint OpenGL::Context::create_program()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     GLuint result_id = 0;
 
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
@@ -1189,6 +1342,8 @@ end:
 
 GLuint OpenGL::Context::create_shader(const OpenGL::ShaderType& in_type)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     GLuint result_id = 0;
 
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
@@ -1220,73 +1375,108 @@ end:
 void OpenGL::Context::delete_buffers(const GLsizei&  in_n,
                                      const uint32_t* in_ids_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     bool result;
 
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
     vkgl_assert(m_gl_buffer_manager_ptr    != nullptr);
 
-    result = m_gl_buffer_manager_ptr->delete_ids(in_n,
-                                                 in_ids_ptr);
-
-    if (!result)
+    for(int n = 0;
+        	n < in_n;
+        	n++)
     {
-        vkgl_assert_fail();
-    }
-
-    m_backend_gl_callbacks_ptr->on_objects_destroyed(OpenGL::ObjectType::Buffer,
-                                                     in_n,
-                                                     in_ids_ptr);
+        if (m_gl_buffer_manager_ptr->is_alive_id(in_ids_ptr[n]) )
+        {
+            result = m_gl_buffer_manager_ptr->delete_ids(1,
+                                                         in_ids_ptr + n);
+        
+            if (!result)
+            {
+                vkgl_assert_fail();
+            }
+        
+            m_backend_gl_callbacks_ptr->on_objects_destroyed(OpenGL::ObjectType::Buffer,
+                                                             1,
+                                                             in_ids_ptr + n);
+		}
+	}
 }
 
 void OpenGL::Context::delete_framebuffers(const GLsizei&  in_n,
                                           const uint32_t* in_framebuffers_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     bool result;
 
     vkgl_assert(m_backend_gl_callbacks_ptr   != nullptr);
     vkgl_assert(m_gl_framebuffer_manager_ptr != nullptr);
 
-    result = m_gl_framebuffer_manager_ptr->delete_ids(in_n,
-                                                      in_framebuffers_ptr);
-
-    if (!result)
+    for(int n = 0;
+        	n < in_n;
+        	n++)
     {
-        vkgl_assert_fail();
-    }
-
-    m_backend_gl_callbacks_ptr->on_objects_destroyed(OpenGL::ObjectType::Framebuffer,
-                                                     in_n,
-                                                     in_framebuffers_ptr);
+        if (m_gl_framebuffer_manager_ptr->is_alive_id(in_framebuffers_ptr[n]) )
+        {
+            result = m_gl_framebuffer_manager_ptr->delete_ids(1,
+                                                              in_framebuffers_ptr + n);
+        
+            if (!result)
+            {
+                vkgl_assert_fail();
+            }
+        
+            m_backend_gl_callbacks_ptr->on_objects_destroyed(OpenGL::ObjectType::Framebuffer,
+                                                             1,
+                                                             in_framebuffers_ptr + n);
+		}
+	}
 }
 
 void OpenGL::Context::delete_program(const GLuint& in_id)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
     vkgl_assert(m_gl_program_manager_ptr   != nullptr);
 
-    m_gl_program_manager_ptr->delete_ids(1, /* in_n_ids */
-                                        &in_id);
-
-    m_backend_gl_callbacks_ptr->on_objects_destroyed(OpenGL::ObjectType::Program,
-                                                     1,
-                                                    &in_id);
+    if (m_gl_program_manager_ptr->is_alive_id(in_id) )
+    {
+        m_gl_program_manager_ptr->delete_ids(1, /* in_n_ids */
+                                            &in_id);
+    
+        m_backend_gl_callbacks_ptr->on_objects_destroyed(OpenGL::ObjectType::Program,
+                                                         1,
+                                                        &in_id);
+	}
 }
 
 void OpenGL::Context::delete_queries(const GLsizei&  in_n,
                                      const uint32_t* in_ids_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
 #if 0
     bool result;
 
-    vkgl_assert(m_gl_query_manager_ptr != nullptr);
-
-    result = m_gl_query_manager_ptr->delete_ids(in_n,
-                                                in_ids_ptr);
-
-    if (!result)
+    for(int n = 0;
+        	n < in_n;
+        	n++)
     {
-        vkgl_assert_fail();
-    }
+        if (m_gl_query_manager_ptr->is_alive_id(in_ids_ptr[n]) )
+        {
+            vkgl_assert(m_gl_query_manager_ptr != nullptr);
+        
+            result = m_gl_query_manager_ptr->delete_ids(in_n,
+                                                        in_ids_ptr);
+        
+            if (!result)
+            {
+                vkgl_assert_fail();
+            }
+		}
+	}
 #else
     vkgl_not_implemented();
 #endif
@@ -1295,75 +1485,119 @@ void OpenGL::Context::delete_queries(const GLsizei&  in_n,
 void OpenGL::Context::delete_renderbuffers(const GLsizei& in_n,
                                            const GLuint*  in_renderbuffers_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     bool result;
 
     vkgl_assert(m_backend_gl_callbacks_ptr    != nullptr);
     vkgl_assert(m_gl_renderbuffer_manager_ptr != nullptr);
 
-    result = m_gl_renderbuffer_manager_ptr->delete_ids(in_n,
-                                                       in_renderbuffers_ptr);
-
-    if (!result)
+    for(int n = 0;
+        	n < in_n;
+        	n++)
     {
-        vkgl_assert_fail();
-    }
-
-    m_backend_gl_callbacks_ptr->on_objects_destroyed(OpenGL::ObjectType::Renderbuffer,
-                                                     in_n,
-                                                     in_renderbuffers_ptr);
+        if (m_gl_renderbuffer_manager_ptr->is_alive_id(in_renderbuffers_ptr[n]) )
+        {
+            result = m_gl_renderbuffer_manager_ptr->delete_ids(1,
+                                                               in_renderbuffers_ptr + n);
+        
+            if (!result)
+            {
+                vkgl_assert_fail();
+            }
+        
+            m_backend_gl_callbacks_ptr->on_objects_destroyed(OpenGL::ObjectType::Renderbuffer,
+                                                             1,
+                                                             in_renderbuffers_ptr + n);
+		}
+	}
 }
 
 void OpenGL::Context::delete_shader(const GLuint& in_id)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
     vkgl_assert(m_gl_shader_manager_ptr    != nullptr);
 
-    m_gl_shader_manager_ptr->delete_ids(1, /* in_n_ids */
-                                       &in_id);
-
-    m_backend_gl_callbacks_ptr->on_objects_destroyed(OpenGL::ObjectType::Shader,
-                                                     1, /* in_n_ids */
-                                                    &in_id);
+    if (m_gl_shader_manager_ptr->is_alive_id(in_id) )
+    {
+        m_gl_shader_manager_ptr->delete_ids(1, /* in_n_ids */
+                                           &in_id);
+    
+        m_backend_gl_callbacks_ptr->on_objects_destroyed(OpenGL::ObjectType::Shader,
+                                                         1, /* in_n_ids */
+                                                        &in_id);
+	}
 }
 
 void OpenGL::Context::delete_sync(const GLsync& in_sync)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::Context::delete_textures(const GLsizei& in_n,
                                       const GLuint*  in_ids_ptr)
 {
-    bool result;
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+	bool result;
 
-    vkgl_assert(m_gl_texture_manager_ptr != nullptr);
+    vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
+    vkgl_assert(m_gl_texture_manager_ptr    != nullptr);
 
-    result = m_gl_texture_manager_ptr->delete_ids(in_n,
-                                                  in_ids_ptr);
-
-    if (!result)
+    for(int n = 0;
+        	n < in_n;
+        	n++)
     {
-        vkgl_assert_fail();
-    }
+        if (m_gl_texture_manager_ptr->is_alive_id(in_ids_ptr[n]) )
+        {
+            result = m_gl_texture_manager_ptr->delete_ids(1,
+                                                         in_ids_ptr);
+        
+            if (!result)
+            {
+                vkgl_assert_fail();
+            }
+        
+            m_backend_gl_callbacks_ptr->on_objects_destroyed(OpenGL::ObjectType::Texture,
+                                                             1,
+                                                             in_ids_ptr);
+		}
+	}
 }
 
 void OpenGL::Context::delete_vertex_arrays(const GLsizei& in_n,
                                            const GLuint*  in_arrays_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
     vkgl_assert(m_gl_vao_manager_ptr       != nullptr);
 
-    m_gl_vao_manager_ptr->delete_ids(in_n,
-                                     in_arrays_ptr);
-
-    m_backend_gl_callbacks_ptr->on_objects_destroyed(OpenGL::ObjectType::Vertex_Array_Object,
-                                                     in_n,
-                                                     in_arrays_ptr);
+    for(int n = 0;
+        	n < in_n;
+        	n++)
+    {
+        if (m_gl_vao_manager_ptr->is_alive_id(in_arrays_ptr[n]) )
+        {
+            m_gl_vao_manager_ptr->delete_ids(1,
+                                             in_arrays_ptr + n);
+        
+            m_backend_gl_callbacks_ptr->on_objects_destroyed(OpenGL::ObjectType::Vertex_Array_Object,
+                                                             1,
+                                                             in_arrays_ptr + n);
+		}
+	}
 }
 
 void OpenGL::Context::detach_shader(const GLuint& in_program,
                                     const GLuint& in_shader)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_program_manager_ptr != nullptr);
 
     if (!m_gl_program_manager_ptr->detach_shader(in_program,
@@ -1375,7 +1609,9 @@ void OpenGL::Context::detach_shader(const GLuint& in_program,
 
 void OpenGL::Context::disable(const OpenGL::Capability& in_capability)
 {
-#if 0
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+#if true
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     m_gl_state_manager_ptr->disable(in_capability);
@@ -1387,11 +1623,15 @@ void OpenGL::Context::disable(const OpenGL::Capability& in_capability)
 void OpenGL::Context::disable_indexed(const OpenGL::Capability& in_capability,
                                       const GLuint&             in_index)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::Context::disable_vertex_attrib_array(const GLuint& in_index)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     set_vaa_enabled_state(in_index,
                           false); /* in_new_state */
 }
@@ -1400,6 +1640,8 @@ void OpenGL::Context::draw_arrays(const OpenGL::DrawCallMode& in_mode,
                                   const GLint&                in_first,
                                   const GLsizei&              in_count)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
 
     m_backend_gl_callbacks_ptr->draw_arrays(in_mode,
@@ -1412,6 +1654,8 @@ void OpenGL::Context::draw_arrays_instanced(const OpenGL::DrawCallMode& in_mode,
                                             const GLsizei&              in_count,
                                             const GLsizei&              in_instancecount)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -1420,6 +1664,8 @@ void OpenGL::Context::draw_elements(const OpenGL::DrawCallMode&      in_mode,
                                     const OpenGL::DrawCallIndexType& in_type,
                                     const void*                      in_indices)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
 
     m_backend_gl_callbacks_ptr->draw_elements(in_mode,
@@ -1434,6 +1680,8 @@ void OpenGL::Context::draw_elements_base_vertex(const OpenGL::DrawCallMode&     
                                                 const void*                      in_indices,
                                                 const GLint&                     in_basevertex)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -1443,6 +1691,8 @@ void OpenGL::Context::draw_elements_instanced(const OpenGL::DrawCallMode&      i
                                               const void*                      in_indices_ptr,
                                               const GLsizei&                   in_instancecount)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -1453,6 +1703,8 @@ void OpenGL::Context::draw_elements_instanced_base_vertex(const OpenGL::DrawCall
                                                           const GLsizei&                   in_instancecount,
                                                           const GLint&                     in_basevertex)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -1463,7 +1715,9 @@ void OpenGL::Context::draw_range_elements(const OpenGL::DrawCallMode&      in_mo
                                           const OpenGL::DrawCallIndexType& in_type,
                                           const void*                      in_indices)
 {
-#if 0
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+#if true
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
 
     m_backend_gl_callbacks_ptr->draw_range_elements(in_mode,
@@ -1485,12 +1739,16 @@ void OpenGL::Context::draw_range_elements_base_vertex(const OpenGL::DrawCallMode
                                                       const void*                      in_indices,
                                                       const GLint&                     in_basevertex)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::Context::enable(const OpenGL::Capability& in_capability)
 {
-#if 0
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+#if true
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     m_gl_state_manager_ptr->enable(in_capability);
@@ -1502,27 +1760,37 @@ void OpenGL::Context::enable(const OpenGL::Capability& in_capability)
 void OpenGL::Context::enable_indexed(const OpenGL::Capability& in_capability,
                                      const GLuint&             in_index)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::Context::enable_vertex_attrib_array(const GLuint& in_index)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     set_vaa_enabled_state(in_index,
                           true); /* in_new_state */
 }
 
 void OpenGL::Context::end_conditional_render()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::Context::end_transform_feedback()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::Context::end_query(const OpenGL::QueryTarget& in_target)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
 #if 0
     vkgl_assert(m_gl_query_manager_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
@@ -1538,6 +1806,8 @@ void OpenGL::Context::end_query(const OpenGL::QueryTarget& in_target)
 
 GLsync OpenGL::Context::fence_sync(const OpenGL::SyncCondition& in_condition)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 
     return nullptr;
@@ -1545,6 +1815,8 @@ GLsync OpenGL::Context::fence_sync(const OpenGL::SyncCondition& in_condition)
 
 void OpenGL::Context::finish()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
 
     m_backend_gl_callbacks_ptr->finish();
@@ -1552,6 +1824,8 @@ void OpenGL::Context::finish()
 
 void OpenGL::Context::flush()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
 
     m_backend_gl_callbacks_ptr->flush(nullptr); /* in_opt_fence_ptr */
@@ -1561,6 +1835,8 @@ void OpenGL::Context::flush_mapped_buffer_range(const OpenGL::BufferTarget& in_t
                                                 const GLintptr&             in_offset,
                                                 const GLsizeiptr&           in_length)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr     != nullptr);
 
@@ -1576,6 +1852,8 @@ void OpenGL::Context::framebuffer_renderbuffer(const OpenGL::FramebufferTarget& 
                                                const OpenGL::RenderbufferTarget&         in_renderbuffertarget,
                                                const GLuint&                             in_renderbuffer)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_framebuffer_manager_ptr  != nullptr);
     vkgl_assert(m_gl_renderbuffer_manager_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr        != nullptr);
@@ -1594,6 +1872,8 @@ void OpenGL::Context::framebuffer_texture(const OpenGL::FramebufferTarget&      
                                           const GLuint&                             in_texture,
                                           const GLint&                              in_level)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_framebuffer_manager_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr       != nullptr);
     vkgl_assert(m_gl_texture_manager_ptr     != nullptr);
@@ -1613,6 +1893,8 @@ void OpenGL::Context::framebuffer_texture_1D(const OpenGL::FramebufferTarget&   
                                              const GLuint&                             in_texture,
                                              const GLint&                              in_level)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_framebuffer_manager_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr       != nullptr);
     vkgl_assert(m_gl_texture_manager_ptr     != nullptr);
@@ -1633,6 +1915,8 @@ void OpenGL::Context::framebuffer_texture_2D(const OpenGL::FramebufferTarget&   
                                              const GLuint&                             in_texture,
                                              const GLint&                              in_level)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_framebuffer_manager_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr       != nullptr);
     vkgl_assert(m_gl_texture_manager_ptr     != nullptr);
@@ -1654,6 +1938,8 @@ void OpenGL::Context::framebuffer_texture_3D(const OpenGL::FramebufferTarget&   
                                              const GLint&                              in_level,
                                              const GLint&                              in_zoffset)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_framebuffer_manager_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr       != nullptr);
     vkgl_assert(m_gl_texture_manager_ptr     != nullptr);
@@ -1675,6 +1961,8 @@ void OpenGL::Context::framebuffer_texture_layer(const OpenGL::FramebufferTarget&
                                                 const GLint&                              in_level,
                                                 const GLint&                              in_layer)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_framebuffer_manager_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr       != nullptr);
     vkgl_assert(m_gl_texture_manager_ptr     != nullptr);
@@ -1691,12 +1979,26 @@ void OpenGL::Context::framebuffer_texture_layer(const OpenGL::FramebufferTarget&
 
 void OpenGL::Context::generate_mipmap(const OpenGL::MipmapGenerationTextureTarget& in_target)
 {
-    vkgl_not_implemented();
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+    vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
+    
+    const auto gl_target = OpenGL::Utils::get_gl_enum_for_mipmap_generation_texture_target(in_target);
+    const auto tex_target = OpenGL::Utils::get_texture_target_for_gl_enum(gl_target);
+    
+    const auto& context_state_ptr   = m_gl_state_manager_ptr->get_state();
+    const auto  active_texture_unit = context_state_ptr->active_texture_unit;
+    const auto  texture_id          = m_gl_state_manager_ptr->get_texture_binding(active_texture_unit,
+                                                                                  tex_target);
+    
+    m_backend_gl_callbacks_ptr->generate_mipmap(texture_id);
 }
 
 void OpenGL::Context::gen_buffers(const uint32_t& in_n,
                                   uint32_t*       out_ids_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_buffer_manager_ptr != nullptr);
 
     if (!m_gl_buffer_manager_ptr->generate_ids(in_n,
@@ -1715,6 +2017,8 @@ void OpenGL::Context::gen_buffers(const uint32_t& in_n,
 void OpenGL::Context::gen_framebuffers(const GLsizei& in_n,
                                        GLuint*        out_framebuffers_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_framebuffer_manager_ptr != nullptr);
 
     if (!m_gl_framebuffer_manager_ptr->generate_ids(in_n,
@@ -1733,6 +2037,8 @@ void OpenGL::Context::gen_framebuffers(const GLsizei& in_n,
 void OpenGL::Context::gen_queries(const uint32_t& in_n,
                                   uint32_t*       out_ids_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
 #if 0
     vkgl_assert(m_gl_query_manager_ptr != nullptr);
 
@@ -1749,6 +2055,8 @@ void OpenGL::Context::gen_queries(const uint32_t& in_n,
 void OpenGL::Context::gen_renderbuffers(const GLsizei& in_n,
                                         GLuint*        out_renderbuffers_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_renderbuffer_manager_ptr != nullptr);
 
     if (!m_gl_renderbuffer_manager_ptr->generate_ids(in_n,
@@ -1767,18 +2075,28 @@ void OpenGL::Context::gen_renderbuffers(const GLsizei& in_n,
 void OpenGL::Context::gen_textures(const GLsizei& in_n,
                                    GLuint*        out_ids_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_texture_manager_ptr != nullptr);
 
     if (!m_gl_texture_manager_ptr->generate_ids(in_n,
-                                                out_ids_ptr) )
+                                               out_ids_ptr) )
     {
         vkgl_assert_fail();
+    }
+    else
+    {
+        m_backend_gl_callbacks_ptr->on_objects_created(OpenGL::ObjectType::Texture,
+                                                       in_n,
+                                                       out_ids_ptr);
     }
 }
 
 void OpenGL::Context::gen_vertex_arrays(const GLsizei& in_n,
                                         GLuint*        out_arrays_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_vao_manager_ptr != nullptr);
 
     if (!m_gl_vao_manager_ptr->generate_ids(in_n,
@@ -2131,6 +2449,8 @@ void OpenGL::Context::get_buffer_sub_data(const OpenGL::BufferTarget& in_target,
                                           const GLsizeiptr&           in_size,
                                           void*                       out_data_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr     != nullptr);
 
@@ -2147,7 +2467,9 @@ void OpenGL::Context::get_compressed_tex_image(const OpenGL::TextureTarget& in_t
                                                const GLint&                 in_level,
                                                void*                        in_img)
 {
-#if 0
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+#if true
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr     != nullptr);
 
@@ -2166,6 +2488,8 @@ void OpenGL::Context::get_compressed_tex_image(const OpenGL::TextureTarget& in_t
 
 OpenGL::ErrorCode OpenGL::Context::get_error()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     return m_gl_state_manager_ptr->get_error();
@@ -2233,13 +2557,13 @@ void OpenGL::Context::get_parameter(const OpenGL::ContextProperty&    in_pname,
 #endif
     if (in_pname == OpenGL::ContextProperty::Renderbuffer_Binding) // todo
     {
-        vkgl_not_implemented()
+        vkgl_not_implemented();
     }
     else
     if (in_pname == OpenGL::ContextProperty::Max_Viewport_Dims) // todo
     {
         /* Can change in time, so this is neither a GL constant, nor a GL limit in a typical sense. */
-        vkgl_not_implemented()
+        vkgl_not_implemented();
     }
     else
 #if 0
@@ -2503,7 +2827,9 @@ void OpenGL::Context::get_texture_image(const OpenGL::TextureTarget& in_target,
                                         const OpenGL::PixelType&     in_type,
                                         void*                        out_pixels_ptr)
 {
-#if 0
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+#if true
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr     != nullptr);
 
@@ -2528,25 +2854,40 @@ void OpenGL::Context::get_texture_level_parameter(const OpenGL::TextureTarget&  
                                                   const OpenGL::GetSetArgumentType&   in_arg_type,
                                                   void*                               out_params_ptr) const
 {
-#if 0
+#if true
     vkgl_assert(m_gl_state_manager_ptr   != nullptr);
     vkgl_assert(m_gl_texture_manager_ptr != nullptr);
 
-    const auto& context_state_ptr   = m_gl_state_manager_ptr->get_state();
-    const auto  active_texture_unit = context_state_ptr->active_texture_unit;
-    const auto  texture_id          = m_gl_state_manager_ptr->get_texture_binding(active_texture_unit,
-                                                                                  in_target);
-
-    if (texture_id != 0)
-    {
-        m_gl_texture_manager_ptr->get_texture_level_parameter(in_level,
-                                                              in_pname,
-                                                              in_arg_type,
-                                                              out_params_ptr);
-    }
-    else
-    {
-        vkgl_assert_fail();
+	if (in_target == OpenGL::TextureTarget::Proxy_Texture_2D 		||
+		in_target == OpenGL::TextureTarget::Proxy_Texture_1D_Array ||
+		in_target == OpenGL::TextureTarget::Proxy_Texture_Rectangle ||
+		in_target == OpenGL::TextureTarget::Proxy_Texture_Cube_Map)
+	{
+        m_gl_texture_manager_ptr->get_texture_level_parameter(0,
+            													  in_level,
+                                                                  in_pname,
+                                                                  in_arg_type,
+                                                                  out_params_ptr);
+	}
+	else
+	{
+        const auto& context_state_ptr   = m_gl_state_manager_ptr->get_state();
+        const auto  active_texture_unit = context_state_ptr->active_texture_unit;
+        const auto  texture_id          = m_gl_state_manager_ptr->get_texture_binding(active_texture_unit,
+                                                                                      in_target);
+    
+        if (texture_id != 0)
+        {
+            m_gl_texture_manager_ptr->get_texture_level_parameter(texture_id,
+            													  in_level,
+                                                                  in_pname,
+                                                                  in_arg_type,
+                                                                  out_params_ptr);
+        }
+        else
+        {
+            vkgl_assert_fail();
+        }
     }
 #else
     vkgl_not_implemented();
@@ -2558,7 +2899,7 @@ void OpenGL::Context::get_texture_parameter(const OpenGL::TextureTarget&      in
                                             const OpenGL::GetSetArgumentType& in_arg_type,
                                             void*                             out_arg_value_ptr) const
 {
-#if 0
+#if true
     vkgl_assert(m_gl_state_manager_ptr   != nullptr);
     vkgl_assert(m_gl_texture_manager_ptr != nullptr);
 
@@ -2569,7 +2910,8 @@ void OpenGL::Context::get_texture_parameter(const OpenGL::TextureTarget&      in
 
     if (texture_id != 0)
     {
-        m_gl_texture_manager_ptr->get_texture_parameter(in_property,
+        m_gl_texture_manager_ptr->get_texture_parameter(texture_id,
+        												in_property,
                                                         in_arg_type,
                                                         out_arg_value_ptr);
     }
@@ -2651,6 +2993,8 @@ void OpenGL::Context::get_uniform_value(const GLuint&                     in_pro
                                         const OpenGL::GetSetArgumentType& in_params_type,
                                         void*                             out_params_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -2708,6 +3052,8 @@ void OpenGL::Context::get_vertex_attribute_property(const GLuint&               
 
 bool OpenGL::Context::init()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     bool result = false;
 
     /* Init dispatch table */
@@ -2785,6 +3131,16 @@ bool OpenGL::Context::init()
         goto end;
     }
 
+    /* Set up GL texture manager */
+    m_gl_texture_manager_ptr = OpenGL::GLTextureManager::create(dynamic_cast<const IGLLimits*>(m_gl_limits_ptr.get() ) );
+
+    if (m_gl_texture_manager_ptr == nullptr)
+    {
+        vkgl_assert(m_gl_texture_manager_ptr != nullptr);
+
+        goto end;
+    }
+
     /* Set up VAO manager */
     m_gl_vao_manager_ptr = OpenGL::GLVAOManager::create(dynamic_cast<const IGLLimits*>(m_gl_limits_ptr.get() ),
                                                         this);
@@ -2834,6 +3190,18 @@ bool OpenGL::Context::init()
         goto end;
     }
 
+    /* Set up GL compatibility manager */
+    m_gl_compatibility_manager_ptr.reset(
+        new OpenGL::GLCompatibilityManager(dynamic_cast<IContextObjectManagers*>(this) )
+    );
+
+    if (m_gl_compatibility_manager_ptr == nullptr)
+    {
+        vkgl_assert(m_gl_compatibility_manager_ptr != nullptr);
+
+        goto end;
+    }
+
     /* All done */
     result = true;
 end:
@@ -2842,334 +3210,336 @@ end:
 
 bool OpenGL::Context::init_dispatch_table()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     bool result = false;
 
     m_dispatch_table.bound_context_ptr         = this;
-    m_dispatch_table.pGLBindTexture            = OpenGL::vkglBindTexture_with_validation;
-    m_dispatch_table.pGLBlendFunc              = OpenGL::vkglBlendFunc_with_validation;
-    m_dispatch_table.pGLClear                  = OpenGL::vkglClear_with_validation;
-    m_dispatch_table.pGLClearColor             = OpenGL::vkglClearColor_with_validation;
-    m_dispatch_table.pGLClearDepth             = OpenGL::vkglClearDepth_with_validation;
-    m_dispatch_table.pGLClearStencil           = OpenGL::vkglClearStencil_with_validation;
-    m_dispatch_table.pGLColorMask              = OpenGL::vkglColorMask_with_validation;
-    m_dispatch_table.pGLCopyTexImage1D         = OpenGL::vkglCopyTexImage1D_with_validation;
-    m_dispatch_table.pGLCopyTexImage2D         = OpenGL::vkglCopyTexImage2D_with_validation;
-    m_dispatch_table.pGLCopyTexSubImage1D      = OpenGL::vkglCopyTexSubImage1D_with_validation;
-    m_dispatch_table.pGLCopyTexSubImage2D      = OpenGL::vkglCopyTexSubImage2D_with_validation;
-    m_dispatch_table.pGLCullFace               = OpenGL::vkglCullFace_with_validation;
-    m_dispatch_table.pGLDeleteTextures         = OpenGL::vkglDeleteTextures_with_validation;
-    m_dispatch_table.pGLDepthFunc              = OpenGL::vkglDepthFunc_with_validation;
-    m_dispatch_table.pGLDepthMask              = OpenGL::vkglDepthMask_with_validation;
-    m_dispatch_table.pGLDepthRange             = OpenGL::vkglDepthRange_with_validation;
-    m_dispatch_table.pGLDisable                = OpenGL::vkglDisable_with_validation;
-    m_dispatch_table.pGLDrawArrays             = OpenGL::vkglDrawArrays_with_validation;
-    m_dispatch_table.pGLDrawBuffer             = OpenGL::vkglDrawBuffer_with_validation;
-    m_dispatch_table.pGLDrawElements           = OpenGL::vkglDrawElements_with_validation;
-    m_dispatch_table.pGLEnable                 = OpenGL::vkglEnable_with_validation;
-    m_dispatch_table.pGLFinish                 = OpenGL::vkglFinish_with_validation;
-    m_dispatch_table.pGLFlush                  = OpenGL::vkglFlush_with_validation;
-    m_dispatch_table.pGLFrontFace              = OpenGL::vkglFrontFace_with_validation;
-    m_dispatch_table.pGLGenTextures            = OpenGL::vkglGenTextures_with_validation;
-    m_dispatch_table.pGLGetBooleanv            = OpenGL::vkglGetBooleanv_with_validation;
-    m_dispatch_table.pGLGetDoublev             = OpenGL::vkglGetDoublev_with_validation;
-    m_dispatch_table.pGLGetError               = OpenGL::vkglGetError_with_validation;
-    m_dispatch_table.pGLGetFloatv              = OpenGL::vkglGetFloatv_with_validation;
-    m_dispatch_table.pGLGetIntegerv            = OpenGL::vkglGetIntegerv_with_validation;
-    m_dispatch_table.pGLGetString              = OpenGL::vkglGetString_with_validation;
-    m_dispatch_table.pGLGetTexImage            = OpenGL::vkglGetTexImage_with_validation;
-    m_dispatch_table.pGLGetTexLevelParameterfv = OpenGL::vkglGetTexLevelParameterfv_with_validation;
-    m_dispatch_table.pGLGetTexLevelParameteriv = OpenGL::vkglGetTexLevelParameteriv_with_validation;
-    m_dispatch_table.pGLGetTexParameterfv      = OpenGL::vkglGetTexParameterfv_with_validation;
-    m_dispatch_table.pGLGetTexParameteriv      = OpenGL::vkglGetTexParameteriv_with_validation;
-    m_dispatch_table.pGLHint                   = OpenGL::vkglHint_with_validation;
-    m_dispatch_table.pGLIsEnabled              = OpenGL::vkglIsEnabled_with_validation;
-    m_dispatch_table.pGLIsTexture              = OpenGL::vkglIsTexture_with_validation;
-    m_dispatch_table.pGLLineWidth              = OpenGL::vkglLineWidth_with_validation;
-    m_dispatch_table.pGLLogicOp                = OpenGL::vkglLogicOp_with_validation;
-    m_dispatch_table.pGLPixelStoref            = OpenGL::vkglPixelStoref_with_validation;
-    m_dispatch_table.pGLPixelStorei            = OpenGL::vkglPixelStorei_with_validation;
-    m_dispatch_table.pGLPointSize              = OpenGL::vkglPointSize_with_validation;
-    m_dispatch_table.pGLPolygonMode            = OpenGL::vkglPolygonMode_with_validation;
-    m_dispatch_table.pGLPolygonOffset          = OpenGL::vkglPolygonOffset_with_validation;
-    m_dispatch_table.pGLReadBuffer             = OpenGL::vkglReadBuffer_with_validation;
-    m_dispatch_table.pGLReadPixels             = OpenGL::vkglReadPixels_with_validation;
-    m_dispatch_table.pGLScissor                = OpenGL::vkglScissor_with_validation;
-    m_dispatch_table.pGLStencilFunc            = OpenGL::vkglStencilFunc_with_validation;
-    m_dispatch_table.pGLStencilMask            = OpenGL::vkglStencilMask_with_validation;
-    m_dispatch_table.pGLStencilOp              = OpenGL::vkglStencilOp_with_validation;
-    m_dispatch_table.pGLTexImage1D             = OpenGL::vkglTexImage1D_with_validation;
-    m_dispatch_table.pGLTexImage2D             = OpenGL::vkglTexImage2D_with_validation;
-    m_dispatch_table.pGLTexParameterf          = OpenGL::vkglTexParameterf_with_validation;
-    m_dispatch_table.pGLTexParameterfv         = OpenGL::vkglTexParameterfv_with_validation;
-    m_dispatch_table.pGLTexParameteri          = OpenGL::vkglTexParameteri_with_validation;
-    m_dispatch_table.pGLTexParameteriv         = OpenGL::vkglTexParameteriv_with_validation;
-    m_dispatch_table.pGLTexSubImage1D          = OpenGL::vkglTexSubImage1D_with_validation;
-    m_dispatch_table.pGLTexSubImage2D          = OpenGL::vkglTexSubImage2D_with_validation;
-    m_dispatch_table.pGLViewport               = OpenGL::vkglViewport_with_validation;
+    m_dispatch_table.pGLBindTexture            = glBindTexture;
+    m_dispatch_table.pGLBlendFunc              = glBlendFunc;
+    m_dispatch_table.pGLClear                  = glClear;
+    m_dispatch_table.pGLClearColor             = glClearColor;
+    m_dispatch_table.pGLClearDepth             = glClearDepth;
+    m_dispatch_table.pGLClearStencil           = glClearStencil;
+    m_dispatch_table.pGLColorMask              = glColorMask;
+    m_dispatch_table.pGLCopyTexImage1D         = glCopyTexImage1D;
+    m_dispatch_table.pGLCopyTexImage2D         = glCopyTexImage2D;
+    m_dispatch_table.pGLCopyTexSubImage1D      = glCopyTexSubImage1D;
+    m_dispatch_table.pGLCopyTexSubImage2D      = glCopyTexSubImage2D;
+    m_dispatch_table.pGLCullFace               = glCullFace;
+    m_dispatch_table.pGLDeleteTextures         = glDeleteTextures;
+    m_dispatch_table.pGLDepthFunc              = glDepthFunc;
+    m_dispatch_table.pGLDepthMask              = glDepthMask;
+    m_dispatch_table.pGLDepthRange             = glDepthRange;
+    m_dispatch_table.pGLDisable                = glDisable;
+    m_dispatch_table.pGLDrawArrays             = glDrawArrays;
+    m_dispatch_table.pGLDrawBuffer             = glDrawBuffer;
+    m_dispatch_table.pGLDrawElements           = glDrawElements;
+    m_dispatch_table.pGLEnable                 = glEnable;
+    m_dispatch_table.pGLFinish                 = glFinish;
+    m_dispatch_table.pGLFlush                  = glFlush;
+    m_dispatch_table.pGLFrontFace              = glFrontFace;
+    m_dispatch_table.pGLGenTextures            = glGenTextures;
+    m_dispatch_table.pGLGetBooleanv            = glGetBooleanv;
+    m_dispatch_table.pGLGetDoublev             = glGetDoublev;
+    m_dispatch_table.pGLGetError               = glGetError;
+    m_dispatch_table.pGLGetFloatv              = glGetFloatv;
+    m_dispatch_table.pGLGetIntegerv            = glGetIntegerv;
+    m_dispatch_table.pGLGetString              = glGetString;
+    m_dispatch_table.pGLGetTexImage            = glGetTexImage;
+    m_dispatch_table.pGLGetTexLevelParameterfv = glGetTexLevelParameterfv;
+    m_dispatch_table.pGLGetTexLevelParameteriv = glGetTexLevelParameteriv;
+    m_dispatch_table.pGLGetTexParameterfv      = glGetTexParameterfv;
+    m_dispatch_table.pGLGetTexParameteriv      = glGetTexParameteriv;
+    m_dispatch_table.pGLHint                   = glHint;
+    m_dispatch_table.pGLIsEnabled              = glIsEnabled;
+    m_dispatch_table.pGLIsTexture              = glIsTexture;
+    m_dispatch_table.pGLLineWidth              = glLineWidth;
+    m_dispatch_table.pGLLogicOp                = glLogicOp;
+    m_dispatch_table.pGLPixelStoref            = glPixelStoref;
+    m_dispatch_table.pGLPixelStorei            = glPixelStorei;
+    m_dispatch_table.pGLPointSize              = glPointSize;
+    m_dispatch_table.pGLPolygonMode            = glPolygonMode;
+    m_dispatch_table.pGLPolygonOffset          = glPolygonOffset;
+    m_dispatch_table.pGLReadBuffer             = glReadBuffer;
+    m_dispatch_table.pGLReadPixels             = glReadPixels;
+    m_dispatch_table.pGLScissor                = glScissor;
+    m_dispatch_table.pGLStencilFunc            = glStencilFunc;
+    m_dispatch_table.pGLStencilMask            = glStencilMask;
+    m_dispatch_table.pGLStencilOp              = glStencilOp;
+    m_dispatch_table.pGLTexImage1D             = glTexImage1D;
+    m_dispatch_table.pGLTexImage2D             = glTexImage2D;
+    m_dispatch_table.pGLTexParameterf          = glTexParameterf;
+    m_dispatch_table.pGLTexParameterfv         = glTexParameterfv;
+    m_dispatch_table.pGLTexParameteri          = glTexParameteri;
+    m_dispatch_table.pGLTexParameteriv         = glTexParameteriv;
+    m_dispatch_table.pGLTexSubImage1D          = glTexSubImage1D;
+    m_dispatch_table.pGLTexSubImage2D          = glTexSubImage2D;
+    m_dispatch_table.pGLViewport               = glViewport;
 
-    m_dispatch_table.pGLCopyTexSubImage3D = OpenGL::vkglCopyTexSubImage3D_with_validation;
-    m_dispatch_table.pGLDrawRangeElements = OpenGL::vkglDrawRangeElements_with_validation;
-    m_dispatch_table.pGLTexImage3D        = OpenGL::vkglTexImage3D_with_validation;
-    m_dispatch_table.pGLTexSubImage3D     = OpenGL::vkglTexSubImage3D_with_validation;
+    m_dispatch_table.pGLCopyTexSubImage3D = glCopyTexSubImage3D;
+    m_dispatch_table.pGLDrawRangeElements = glDrawRangeElements;
+    m_dispatch_table.pGLTexImage3D        = glTexImage3D;
+    m_dispatch_table.pGLTexSubImage3D     = glTexSubImage3D;
 
-    m_dispatch_table.pGLActiveTexture           = OpenGL::vkglActiveTexture_with_validation;
-    m_dispatch_table.pGLCompressedTexImage1D    = OpenGL::vkglCompressedTexImage1D_with_validation;
-    m_dispatch_table.pGLCompressedTexImage2D    = OpenGL::vkglCompressedTexImage2D_with_validation;
-    m_dispatch_table.pGLCompressedTexImage3D    = OpenGL::vkglCompressedTexImage3D_with_validation;
-    m_dispatch_table.pGLCompressedTexSubImage1D = OpenGL::vkglCompressedTexSubImage1D_with_validation;
-    m_dispatch_table.pGLCompressedTexSubImage2D = OpenGL::vkglCompressedTexSubImage2D_with_validation;
-    m_dispatch_table.pGLCompressedTexSubImage3D = OpenGL::vkglCompressedTexSubImage3D_with_validation;
-    m_dispatch_table.pGLGetCompressedTexImage   = OpenGL::vkglGetCompressedTexImage_with_validation;
-    m_dispatch_table.pGLSampleCoverage          = OpenGL::vkglSampleCoverage_with_validation;
+    m_dispatch_table.pGLActiveTexture           = glActiveTexture;
+    m_dispatch_table.pGLCompressedTexImage1D    = glCompressedTexImage1D;
+    m_dispatch_table.pGLCompressedTexImage2D    = glCompressedTexImage2D;
+    m_dispatch_table.pGLCompressedTexImage3D    = glCompressedTexImage3D;
+    m_dispatch_table.pGLCompressedTexSubImage1D = glCompressedTexSubImage1D;
+    m_dispatch_table.pGLCompressedTexSubImage2D = glCompressedTexSubImage2D;
+    m_dispatch_table.pGLCompressedTexSubImage3D = glCompressedTexSubImage3D;
+    m_dispatch_table.pGLGetCompressedTexImage   = glGetCompressedTexImage;
+    m_dispatch_table.pGLSampleCoverage          = glSampleCoverage;
 
-    m_dispatch_table.pGLBlendColor        = OpenGL::vkglBlendColor_with_validation;
-    m_dispatch_table.pGLBlendEquation     = OpenGL::vkglBlendEquation_with_validation;
-    m_dispatch_table.pGLBlendFuncSeparate = OpenGL::vkglBlendFuncSeparate_with_validation;
-    m_dispatch_table.pGLMultiDrawArrays   = OpenGL::vkglMultiDrawArrays_with_validation;
-    m_dispatch_table.pGLMultiDrawElements = OpenGL::vkglMultiDrawElements_with_validation;
-    m_dispatch_table.pGLPointParameterf   = OpenGL::vkglPointParameterf_with_validation;
-    m_dispatch_table.pGLPointParameterfv  = OpenGL::vkglPointParameterfv_with_validation;
-    m_dispatch_table.pGLPointParameteri   = OpenGL::vkglPointParameteri_with_validation;
-    m_dispatch_table.pGLPointParameteriv  = OpenGL::vkglPointParameteriv_with_validation;
+    m_dispatch_table.pGLBlendColor        = glBlendColor;
+    m_dispatch_table.pGLBlendEquation     = glBlendEquation;
+    m_dispatch_table.pGLBlendFuncSeparate = glBlendFuncSeparate;
+    m_dispatch_table.pGLMultiDrawArrays   = glMultiDrawArrays;
+    m_dispatch_table.pGLMultiDrawElements = glMultiDrawElements;
+    m_dispatch_table.pGLPointParameterf   = glPointParameterf;
+    m_dispatch_table.pGLPointParameterfv  = glPointParameterfv;
+    m_dispatch_table.pGLPointParameteri   = glPointParameteri;
+    m_dispatch_table.pGLPointParameteriv  = glPointParameteriv;
 
-    m_dispatch_table.pGLBeginQuery           = OpenGL::vkglBeginQuery_with_validation;
-    m_dispatch_table.pGLBindBuffer           = OpenGL::vkglBindBuffer_with_validation;
-    m_dispatch_table.pGLBufferData           = OpenGL::vkglBufferData_with_validation;
-    m_dispatch_table.pGLBufferSubData        = OpenGL::vkglBufferSubData_with_validation;
-    m_dispatch_table.pGLDeleteBuffers        = OpenGL::vkglDeleteBuffers_with_validation;
-    m_dispatch_table.pGLDeleteQueries        = OpenGL::vkglDeleteQueries_with_validation;
-    m_dispatch_table.pGLEndQuery             = OpenGL::vkglEndQuery_with_validation;
-    m_dispatch_table.pGLGenBuffers           = OpenGL::vkglGenBuffers_with_validation;
-    m_dispatch_table.pGLGenQueries           = OpenGL::vkglGenQueries_with_validation;
-    m_dispatch_table.pGLGetBufferParameteriv = OpenGL::vkglGetBufferParameteriv_with_validation;
-    m_dispatch_table.pGLGetBufferPointerv    = OpenGL::vkglGetBufferPointerv_with_validation;
-    m_dispatch_table.pGLGetBufferSubData     = OpenGL::vkglGetBufferSubData_with_validation;
-    m_dispatch_table.pGLGetQueryiv           = OpenGL::vkglGetQueryiv_with_validation;
-    m_dispatch_table.pGLGetQueryObjectiv     = OpenGL::vkglGetQueryObjectiv_with_validation;
-    m_dispatch_table.pGLGetQueryObjectuiv    = OpenGL::vkglGetQueryObjectuiv_with_validation;
-    m_dispatch_table.pGLIsBuffer             = OpenGL::vkglIsBuffer_with_validation;
-    m_dispatch_table.pGLIsQuery              = OpenGL::vkglIsQuery_with_validation;
-    m_dispatch_table.pGLMapBuffer            = OpenGL::vkglMapBuffer_with_validation;
-    m_dispatch_table.pGLUnmapBuffer          = OpenGL::vkglUnmapBuffer_with_validation;
+    m_dispatch_table.pGLBeginQuery           = glBeginQuery;
+    m_dispatch_table.pGLBindBuffer           = glBindBuffer;
+    m_dispatch_table.pGLBufferData           = glBufferData;
+    m_dispatch_table.pGLBufferSubData        = glBufferSubData;
+    m_dispatch_table.pGLDeleteBuffers        = glDeleteBuffers;
+    m_dispatch_table.pGLDeleteQueries        = glDeleteQueries;
+    m_dispatch_table.pGLEndQuery             = glEndQuery;
+    m_dispatch_table.pGLGenBuffers           = glGenBuffers;
+    m_dispatch_table.pGLGenQueries           = glGenQueries;
+    m_dispatch_table.pGLGetBufferParameteriv = glGetBufferParameteriv;
+    m_dispatch_table.pGLGetBufferPointerv    = glGetBufferPointerv;
+    m_dispatch_table.pGLGetBufferSubData     = glGetBufferSubData;
+    m_dispatch_table.pGLGetQueryiv           = glGetQueryiv;
+    m_dispatch_table.pGLGetQueryObjectiv     = glGetQueryObjectiv;
+    m_dispatch_table.pGLGetQueryObjectuiv    = glGetQueryObjectuiv;
+    m_dispatch_table.pGLIsBuffer             = glIsBuffer;
+    m_dispatch_table.pGLIsQuery              = glIsQuery;
+    m_dispatch_table.pGLMapBuffer            = glMapBuffer;
+    m_dispatch_table.pGLUnmapBuffer          = glUnmapBuffer;
 
-    m_dispatch_table.pGLAttachShader             = OpenGL::vkglAttachShader_with_validation;
-    m_dispatch_table.pGLBindAttribLocation       = OpenGL::vkglBindAttribLocation_with_validation;
-    m_dispatch_table.pGLBlendEquationSeparate    = OpenGL::vkglBlendEquationSeparate_with_validation;
-    m_dispatch_table.pGLCompileShader            = OpenGL::vkglCompileShader_with_validation;
-    m_dispatch_table.pGLCreateProgram            = OpenGL::vkglCreateProgram_with_validation;
-    m_dispatch_table.pGLCreateShader             = OpenGL::vkglCreateShader_with_validation;
-    m_dispatch_table.pGLDeleteProgram            = OpenGL::vkglDeleteProgram_with_validation;
-    m_dispatch_table.pGLDeleteShader             = OpenGL::vkglDeleteShader_with_validation;
-    m_dispatch_table.pGLDetachShader             = OpenGL::vkglDetachShader_with_validation;
-    m_dispatch_table.pGLDisableVertexAttribArray = OpenGL::vkglDisableVertexAttribArray_with_validation;
-    m_dispatch_table.pGLDrawBuffers              = OpenGL::vkglDrawBuffers_with_validation;
-    m_dispatch_table.pGLEnableVertexAttribArray  = OpenGL::vkglEnableVertexAttribArray_with_validation;
-    m_dispatch_table.pGLGetActiveAttrib          = OpenGL::vkglGetActiveAttrib_with_validation;
-    m_dispatch_table.pGLGetActiveUniform         = OpenGL::vkglGetActiveUniform_with_validation;
-    m_dispatch_table.pGLGetAttachedShaders       = OpenGL::vkglGetAttachedShaders_with_validation;
-    m_dispatch_table.pGLGetAttribLocation        = OpenGL::vkglGetAttribLocation_with_validation;
-    m_dispatch_table.pGLGetProgramiv             = OpenGL::vkglGetProgramiv_with_validation;
-    m_dispatch_table.pGLGetProgramInfoLog        = OpenGL::vkglGetProgramInfoLog_with_validation;
-    m_dispatch_table.pGLGetShaderiv              = OpenGL::vkglGetShaderiv_with_validation;
-    m_dispatch_table.pGLGetShaderInfoLog         = OpenGL::vkglGetShaderInfoLog_with_validation;
-    m_dispatch_table.pGLGetShaderSource          = OpenGL::vkglGetShaderSource_with_validation;
-    m_dispatch_table.pGLGetUniformfv             = OpenGL::vkglGetUniformfv_with_validation;
-    m_dispatch_table.pGLGetUniformiv             = OpenGL::vkglGetUniformiv_with_validation;
-    m_dispatch_table.pGLGetUniformLocation       = OpenGL::vkglGetUniformLocation_with_validation;
-    m_dispatch_table.pGLGetVertexAttribdv        = OpenGL::vkglGetVertexAttribdv_with_validation;
-    m_dispatch_table.pGLGetVertexAttribfv        = OpenGL::vkglGetVertexAttribfv_with_validation;
-    m_dispatch_table.pGLGetVertexAttribiv        = OpenGL::vkglGetVertexAttribiv_with_validation;
-    m_dispatch_table.pGLGetVertexAttribPointerv  = OpenGL::vkglGetVertexAttribPointerv_with_validation;
-    m_dispatch_table.pGLIsProgram                = OpenGL::vkglIsProgram_with_validation;
-    m_dispatch_table.pGLIsShader                 = OpenGL::vkglIsShader_with_validation;
-    m_dispatch_table.pGLLinkProgram              = OpenGL::vkglLinkProgram_with_validation;
-    m_dispatch_table.pGLShaderSource             = OpenGL::vkglShaderSource_with_validation;
-    m_dispatch_table.pGLStencilFuncSeparate      = OpenGL::vkglStencilFuncSeparate_with_validation;
-    m_dispatch_table.pGLStencilMaskSeparate      = OpenGL::vkglStencilMaskSeparate_with_validation;
-    m_dispatch_table.pGLStencilOpSeparate        = OpenGL::vkglStencilOpSeparate_with_validation;
-    m_dispatch_table.pGLUniform1f                = OpenGL::vkglUniform1f_with_validation;
-    m_dispatch_table.pGLUniform1fv               = OpenGL::vkglUniform1fv_with_validation;
-    m_dispatch_table.pGLUniform1i                = OpenGL::vkglUniform1i_with_validation;
-    m_dispatch_table.pGLUniform1iv               = OpenGL::vkglUniform1iv_with_validation;
-    m_dispatch_table.pGLUniform2f                = OpenGL::vkglUniform2f_with_validation;
-    m_dispatch_table.pGLUniform2fv               = OpenGL::vkglUniform2fv_with_validation;
-    m_dispatch_table.pGLUniform2i                = OpenGL::vkglUniform2i_with_validation;
-    m_dispatch_table.pGLUniform2iv               = OpenGL::vkglUniform2iv_with_validation;
-    m_dispatch_table.pGLUniform3f                = OpenGL::vkglUniform3f_with_validation;
-    m_dispatch_table.pGLUniform3fv               = OpenGL::vkglUniform3fv_with_validation;
-    m_dispatch_table.pGLUniform3i                = OpenGL::vkglUniform3i_with_validation;
-    m_dispatch_table.pGLUniform3iv               = OpenGL::vkglUniform3iv_with_validation;
-    m_dispatch_table.pGLUniform4f                = OpenGL::vkglUniform4f_with_validation;
-    m_dispatch_table.pGLUniform4fv               = OpenGL::vkglUniform4fv_with_validation;
-    m_dispatch_table.pGLUniform4i                = OpenGL::vkglUniform4i_with_validation;
-    m_dispatch_table.pGLUniform4iv               = OpenGL::vkglUniform4iv_with_validation;
-    m_dispatch_table.pGLUniformMatrix2fv         = OpenGL::vkglUniformMatrix2fv_with_validation;
-    m_dispatch_table.pGLUniformMatrix3fv         = OpenGL::vkglUniformMatrix3fv_with_validation;
-    m_dispatch_table.pGLUniformMatrix4fv         = OpenGL::vkglUniformMatrix4fv_with_validation;
-    m_dispatch_table.pGLUseProgram               = OpenGL::vkglUseProgram_with_validation;
-    m_dispatch_table.pGLValidateProgram          = OpenGL::vkglValidateProgram_with_validation;
-    m_dispatch_table.pGLVertexAttrib1d           = OpenGL::vkglVertexAttrib1d_with_validation;
-    m_dispatch_table.pGLVertexAttrib1dv          = OpenGL::vkglVertexAttrib1dv_with_validation;
-    m_dispatch_table.pGLVertexAttrib1f           = OpenGL::vkglVertexAttrib1f_with_validation;
-    m_dispatch_table.pGLVertexAttrib1fv          = OpenGL::vkglVertexAttrib1fv_with_validation;
-    m_dispatch_table.pGLVertexAttrib1s           = OpenGL::vkglVertexAttrib1s_with_validation;
-    m_dispatch_table.pGLVertexAttrib1sv          = OpenGL::vkglVertexAttrib1sv_with_validation;
-    m_dispatch_table.pGLVertexAttrib2d           = OpenGL::vkglVertexAttrib2d_with_validation;
-    m_dispatch_table.pGLVertexAttrib2dv          = OpenGL::vkglVertexAttrib2dv_with_validation;
-    m_dispatch_table.pGLVertexAttrib2f           = OpenGL::vkglVertexAttrib2f_with_validation;
-    m_dispatch_table.pGLVertexAttrib2fv          = OpenGL::vkglVertexAttrib2fv_with_validation;
-    m_dispatch_table.pGLVertexAttrib2s           = OpenGL::vkglVertexAttrib2s_with_validation;
-    m_dispatch_table.pGLVertexAttrib2sv          = OpenGL::vkglVertexAttrib2sv_with_validation;
-    m_dispatch_table.pGLVertexAttrib3d           = OpenGL::vkglVertexAttrib3d_with_validation;
-    m_dispatch_table.pGLVertexAttrib3dv          = OpenGL::vkglVertexAttrib3dv_with_validation;
-    m_dispatch_table.pGLVertexAttrib3f           = OpenGL::vkglVertexAttrib3f_with_validation;
-    m_dispatch_table.pGLVertexAttrib3fv          = OpenGL::vkglVertexAttrib3fv_with_validation;
-    m_dispatch_table.pGLVertexAttrib3s           = OpenGL::vkglVertexAttrib3s_with_validation;
-    m_dispatch_table.pGLVertexAttrib3sv          = OpenGL::vkglVertexAttrib3sv_with_validation;
-    m_dispatch_table.pGLVertexAttrib4bv          = OpenGL::vkglVertexAttrib4bv_with_validation;
-    m_dispatch_table.pGLVertexAttrib4d           = OpenGL::vkglVertexAttrib4d_with_validation;
-    m_dispatch_table.pGLVertexAttrib4dv          = OpenGL::vkglVertexAttrib4dv_with_validation;
-    m_dispatch_table.pGLVertexAttrib4f           = OpenGL::vkglVertexAttrib4f_with_validation;
-    m_dispatch_table.pGLVertexAttrib4fv          = OpenGL::vkglVertexAttrib4fv_with_validation;
-    m_dispatch_table.pGLVertexAttrib4iv          = OpenGL::vkglVertexAttrib4iv_with_validation;
-    m_dispatch_table.pGLVertexAttrib4Nbv         = OpenGL::vkglVertexAttrib4Nbv_with_validation;
-    m_dispatch_table.pGLVertexAttrib4Niv         = OpenGL::vkglVertexAttrib4Niv_with_validation;
-    m_dispatch_table.pGLVertexAttrib4Nsv         = OpenGL::vkglVertexAttrib4Nsv_with_validation;
-    m_dispatch_table.pGLVertexAttrib4Nub         = OpenGL::vkglVertexAttrib4Nub_with_validation;
-    m_dispatch_table.pGLVertexAttrib4Nubv        = OpenGL::vkglVertexAttrib4Nubv_with_validation;
-    m_dispatch_table.pGLVertexAttrib4Nuiv        = OpenGL::vkglVertexAttrib4Nuiv_with_validation;
-    m_dispatch_table.pGLVertexAttrib4Nusv        = OpenGL::vkglVertexAttrib4Nusv_with_validation;
-    m_dispatch_table.pGLVertexAttrib4s           = OpenGL::vkglVertexAttrib4s_with_validation;
-    m_dispatch_table.pGLVertexAttrib4sv          = OpenGL::vkglVertexAttrib4sv_with_validation;
-    m_dispatch_table.pGLVertexAttrib4ubv         = OpenGL::vkglVertexAttrib4ubv_with_validation;
-    m_dispatch_table.pGLVertexAttrib4uiv         = OpenGL::vkglVertexAttrib4uiv_with_validation;
-    m_dispatch_table.pGLVertexAttrib4usv         = OpenGL::vkglVertexAttrib4usv_with_validation;
-    m_dispatch_table.pGLVertexAttribPointer      = OpenGL::vkglVertexAttribPointer_with_validation;
+    m_dispatch_table.pGLAttachShader             = glAttachShader;
+    m_dispatch_table.pGLBindAttribLocation       = glBindAttribLocation;
+    m_dispatch_table.pGLBlendEquationSeparate    = glBlendEquationSeparate;
+    m_dispatch_table.pGLCompileShader            = glCompileShader;
+    m_dispatch_table.pGLCreateProgram            = glCreateProgram;
+    m_dispatch_table.pGLCreateShader             = glCreateShader;
+    m_dispatch_table.pGLDeleteProgram            = glDeleteProgram;
+    m_dispatch_table.pGLDeleteShader             = glDeleteShader;
+    m_dispatch_table.pGLDetachShader             = glDetachShader;
+    m_dispatch_table.pGLDisableVertexAttribArray = glDisableVertexAttribArray;
+    m_dispatch_table.pGLDrawBuffers              = glDrawBuffers;
+    m_dispatch_table.pGLEnableVertexAttribArray  = glEnableVertexAttribArray;
+    m_dispatch_table.pGLGetActiveAttrib          = glGetActiveAttrib;
+    m_dispatch_table.pGLGetActiveUniform         = glGetActiveUniform;
+    m_dispatch_table.pGLGetAttachedShaders       = glGetAttachedShaders;
+    m_dispatch_table.pGLGetAttribLocation        = glGetAttribLocation;
+    m_dispatch_table.pGLGetProgramiv             = glGetProgramiv;
+    m_dispatch_table.pGLGetProgramInfoLog        = glGetProgramInfoLog;
+    m_dispatch_table.pGLGetShaderiv              = glGetShaderiv;
+    m_dispatch_table.pGLGetShaderInfoLog         = glGetShaderInfoLog;
+    m_dispatch_table.pGLGetShaderSource          = glGetShaderSource;
+    m_dispatch_table.pGLGetUniformfv             = glGetUniformfv;
+    m_dispatch_table.pGLGetUniformiv             = glGetUniformiv;
+    m_dispatch_table.pGLGetUniformLocation       = glGetUniformLocation;
+    m_dispatch_table.pGLGetVertexAttribdv        = glGetVertexAttribdv;
+    m_dispatch_table.pGLGetVertexAttribfv        = glGetVertexAttribfv;
+    m_dispatch_table.pGLGetVertexAttribiv        = glGetVertexAttribiv;
+    m_dispatch_table.pGLGetVertexAttribPointerv  = glGetVertexAttribPointerv;
+    m_dispatch_table.pGLIsProgram                = glIsProgram;
+    m_dispatch_table.pGLIsShader                 = glIsShader;
+    m_dispatch_table.pGLLinkProgram              = glLinkProgram;
+    m_dispatch_table.pGLShaderSource             = glShaderSource;
+    m_dispatch_table.pGLStencilFuncSeparate      = glStencilFuncSeparate;
+    m_dispatch_table.pGLStencilMaskSeparate      = glStencilMaskSeparate;
+    m_dispatch_table.pGLStencilOpSeparate        = glStencilOpSeparate;
+    m_dispatch_table.pGLUniform1f                = glUniform1f;
+    m_dispatch_table.pGLUniform1fv               = glUniform1fv;
+    m_dispatch_table.pGLUniform1i                = glUniform1i;
+    m_dispatch_table.pGLUniform1iv               = glUniform1iv;
+    m_dispatch_table.pGLUniform2f                = glUniform2f;
+    m_dispatch_table.pGLUniform2fv               = glUniform2fv;
+    m_dispatch_table.pGLUniform2i                = glUniform2i;
+    m_dispatch_table.pGLUniform2iv               = glUniform2iv;
+    m_dispatch_table.pGLUniform3f                = glUniform3f;
+    m_dispatch_table.pGLUniform3fv               = glUniform3fv;
+    m_dispatch_table.pGLUniform3i                = glUniform3i;
+    m_dispatch_table.pGLUniform3iv               = glUniform3iv;
+    m_dispatch_table.pGLUniform4f                = glUniform4f;
+    m_dispatch_table.pGLUniform4fv               = glUniform4fv;
+    m_dispatch_table.pGLUniform4i                = glUniform4i;
+    m_dispatch_table.pGLUniform4iv               = glUniform4iv;
+    m_dispatch_table.pGLUniformMatrix2fv         = glUniformMatrix2fv;
+    m_dispatch_table.pGLUniformMatrix3fv         = glUniformMatrix3fv;
+    m_dispatch_table.pGLUniformMatrix4fv         = glUniformMatrix4fv;
+    m_dispatch_table.pGLUseProgram               = glUseProgram;
+    m_dispatch_table.pGLValidateProgram          = glValidateProgram;
+    m_dispatch_table.pGLVertexAttrib1d           = glVertexAttrib1d;
+    m_dispatch_table.pGLVertexAttrib1dv          = glVertexAttrib1dv;
+    m_dispatch_table.pGLVertexAttrib1f           = glVertexAttrib1f;
+    m_dispatch_table.pGLVertexAttrib1fv          = glVertexAttrib1fv;
+    m_dispatch_table.pGLVertexAttrib1s           = glVertexAttrib1s;
+    m_dispatch_table.pGLVertexAttrib1sv          = glVertexAttrib1sv;
+    m_dispatch_table.pGLVertexAttrib2d           = glVertexAttrib2d;
+    m_dispatch_table.pGLVertexAttrib2dv          = glVertexAttrib2dv;
+    m_dispatch_table.pGLVertexAttrib2f           = glVertexAttrib2f;
+    m_dispatch_table.pGLVertexAttrib2fv          = glVertexAttrib2fv;
+    m_dispatch_table.pGLVertexAttrib2s           = glVertexAttrib2s;
+    m_dispatch_table.pGLVertexAttrib2sv          = glVertexAttrib2sv;
+    m_dispatch_table.pGLVertexAttrib3d           = glVertexAttrib3d;
+    m_dispatch_table.pGLVertexAttrib3dv          = glVertexAttrib3dv;
+    m_dispatch_table.pGLVertexAttrib3f           = glVertexAttrib3f;
+    m_dispatch_table.pGLVertexAttrib3fv          = glVertexAttrib3fv;
+    m_dispatch_table.pGLVertexAttrib3s           = glVertexAttrib3s;
+    m_dispatch_table.pGLVertexAttrib3sv          = glVertexAttrib3sv;
+    m_dispatch_table.pGLVertexAttrib4bv          = glVertexAttrib4bv;
+    m_dispatch_table.pGLVertexAttrib4d           = glVertexAttrib4d;
+    m_dispatch_table.pGLVertexAttrib4dv          = glVertexAttrib4dv;
+    m_dispatch_table.pGLVertexAttrib4f           = glVertexAttrib4f;
+    m_dispatch_table.pGLVertexAttrib4fv          = glVertexAttrib4fv;
+    m_dispatch_table.pGLVertexAttrib4iv          = glVertexAttrib4iv;
+    m_dispatch_table.pGLVertexAttrib4Nbv         = glVertexAttrib4Nbv;
+    m_dispatch_table.pGLVertexAttrib4Niv         = glVertexAttrib4Niv;
+    m_dispatch_table.pGLVertexAttrib4Nsv         = glVertexAttrib4Nsv;
+    m_dispatch_table.pGLVertexAttrib4Nub         = glVertexAttrib4Nub;
+    m_dispatch_table.pGLVertexAttrib4Nubv        = glVertexAttrib4Nubv;
+    m_dispatch_table.pGLVertexAttrib4Nuiv        = glVertexAttrib4Nuiv;
+    m_dispatch_table.pGLVertexAttrib4Nusv        = glVertexAttrib4Nusv;
+    m_dispatch_table.pGLVertexAttrib4s           = glVertexAttrib4s;
+    m_dispatch_table.pGLVertexAttrib4sv          = glVertexAttrib4sv;
+    m_dispatch_table.pGLVertexAttrib4ubv         = glVertexAttrib4ubv;
+    m_dispatch_table.pGLVertexAttrib4uiv         = glVertexAttrib4uiv;
+    m_dispatch_table.pGLVertexAttrib4usv         = glVertexAttrib4usv;
+    m_dispatch_table.pGLVertexAttribPointer      = glVertexAttribPointer;
 
-    m_dispatch_table.pGLUniformMatrix2x3fv = OpenGL::vkglUniformMatrix2x3fv_with_validation;
-    m_dispatch_table.pGLUniformMatrix2x4fv = OpenGL::vkglUniformMatrix2x4fv_with_validation;
-    m_dispatch_table.pGLUniformMatrix3x2fv = OpenGL::vkglUniformMatrix3x2fv_with_validation;
-    m_dispatch_table.pGLUniformMatrix3x4fv = OpenGL::vkglUniformMatrix3x4fv_with_validation;
-    m_dispatch_table.pGLUniformMatrix4x2fv = OpenGL::vkglUniformMatrix4x2fv_with_validation;
-    m_dispatch_table.pGLUniformMatrix4x3fv = OpenGL::vkglUniformMatrix4x3fv_with_validation;
+    m_dispatch_table.pGLUniformMatrix2x3fv = glUniformMatrix2x3fv;
+    m_dispatch_table.pGLUniformMatrix2x4fv = glUniformMatrix2x4fv;
+    m_dispatch_table.pGLUniformMatrix3x2fv = glUniformMatrix3x2fv;
+    m_dispatch_table.pGLUniformMatrix3x4fv = glUniformMatrix3x4fv;
+    m_dispatch_table.pGLUniformMatrix4x2fv = glUniformMatrix4x2fv;
+    m_dispatch_table.pGLUniformMatrix4x3fv = glUniformMatrix4x3fv;
 
-    m_dispatch_table.pGLBeginConditionalRender              = OpenGL::vkglBeginConditionalRender_with_validation;
-    m_dispatch_table.pGLBeginTransformFeedback              = OpenGL::vkglBeginTransformFeedback_with_validation;
-    m_dispatch_table.pGLBindBufferBase                      = OpenGL::vkglBindBufferBase_with_validation;
-    m_dispatch_table.pGLBindBufferRange                     = OpenGL::vkglBindBufferRange_with_validation;
-    m_dispatch_table.pGLBindFragDataLocation                = OpenGL::vkglBindFragDataLocation_with_validation;
-    m_dispatch_table.pGLBindFramebuffer                     = OpenGL::vkglBindFramebuffer_with_validation;
-    m_dispatch_table.pGLBindRenderbuffer                    = OpenGL::vkglBindRenderbuffer_with_validation;
-    m_dispatch_table.pGLBindVertexArray                     = OpenGL::vkglBindVertexArray_with_validation;
-    m_dispatch_table.pGLBlitFramebuffer                     = OpenGL::vkglBlitFramebuffer_with_validation;
-    m_dispatch_table.pGLCheckFramebufferStatus              = OpenGL::vkglCheckFramebufferStatus_with_validation;
-    m_dispatch_table.pGLClampColor                          = OpenGL::vkglClampColor_with_validation;
-    m_dispatch_table.pGLClearBufferfi                       = OpenGL::vkglClearBufferfi_with_validation;
-    m_dispatch_table.pGLClearBufferfv                       = OpenGL::vkglClearBufferfv_with_validation;
-    m_dispatch_table.pGLClearBufferiv                       = OpenGL::vkglClearBufferiv_with_validation;
-    m_dispatch_table.pGLClearBufferuiv                      = OpenGL::vkglClearBufferuiv_with_validation;
-    m_dispatch_table.pGLColorMaski                          = OpenGL::vkglColorMaski_with_validation;
-    m_dispatch_table.pGLDeleteFramebuffers                  = OpenGL::vkglDeleteFramebuffers_with_validation;
-    m_dispatch_table.pGLDeleteRenderbuffers                 = OpenGL::vkglDeleteRenderbuffers_with_validation;
-    m_dispatch_table.pGLDeleteVertexArrays                  = OpenGL::vkglDeleteVertexArrays_with_validation;
-    m_dispatch_table.pGLDisablei                            = OpenGL::vkglDisablei_with_validation;
-    m_dispatch_table.pGLEnablei                             = OpenGL::vkglEnablei_with_validation;
-    m_dispatch_table.pGLEndConditionalRender                = OpenGL::vkglEndConditionalRender_with_validation;
-    m_dispatch_table.pGLEndTransformFeedback                = OpenGL::vkglEndTransformFeedback_with_validation;
-    m_dispatch_table.pGLFlushMappedBufferRange              = OpenGL::vkglFlushMappedBufferRange_with_validation;
-    m_dispatch_table.pGLFramebufferRenderbuffer             = OpenGL::vkglFramebufferRenderbuffer_with_validation;
-    m_dispatch_table.pGLFramebufferTexture1D                = OpenGL::vkglFramebufferTexture1D_with_validation;
-    m_dispatch_table.pGLFramebufferTexture2D                = OpenGL::vkglFramebufferTexture2D_with_validation;
-    m_dispatch_table.pGLFramebufferTexture3D                = OpenGL::vkglFramebufferTexture3D_with_validation;
-    m_dispatch_table.pGLFramebufferTextureLayer             = OpenGL::vkglFramebufferTextureLayer_with_validation;
-    m_dispatch_table.pGLGenerateMipmap                      = OpenGL::vkglGenerateMipmap_with_validation;
-    m_dispatch_table.pGLGenFramebuffers                     = OpenGL::vkglGenFramebuffers_with_validation;
-    m_dispatch_table.pGLGenRenderbuffers                    = OpenGL::vkglGenRenderbuffers_with_validation;
-    m_dispatch_table.pGLGenVertexArrays                     = OpenGL::vkglGenVertexArrays_with_validation;
-    m_dispatch_table.pGLGetBooleani_v                       = OpenGL::vkglGetBooleani_v_with_validation;
-    m_dispatch_table.pGLGetFragDataLocation                 = OpenGL::vkglGetFragDataLocation_with_validation;
-    m_dispatch_table.pGLGetFramebufferAttachmentParameteriv = OpenGL::vkglGetFramebufferAttachmentParameteriv_with_validation;
-    m_dispatch_table.pGLGetIntegeri_v                       = OpenGL::vkglGetIntegeri_v_with_validation;
-    m_dispatch_table.pGLGetRenderbufferParameteriv          = OpenGL::vkglGetRenderbufferParameteriv_with_validation;
-    m_dispatch_table.pGLGetStringi                          = OpenGL::vkglGetStringi_with_validation;
-    m_dispatch_table.pGLGetTexParameterIiv                  = OpenGL::vkglGetTexParameterIiv_with_validation;
-    m_dispatch_table.pGLGetTexParameterIuiv                 = OpenGL::vkglGetTexParameterIuiv_with_validation;
-    m_dispatch_table.pGLGetTransformFeedbackVarying         = OpenGL::vkglGetTransformFeedbackVarying_with_validation;
-    m_dispatch_table.pGLGetUniformuiv                       = OpenGL::vkglGetUniformuiv_with_validation;
-    m_dispatch_table.pGLGetVertexAttribIiv                  = OpenGL::vkglGetVertexAttribIiv_with_validation;
-    m_dispatch_table.pGLGetVertexAttribIuiv                 = OpenGL::vkglGetVertexAttribIuiv_with_validation;
-    m_dispatch_table.pGLIsEnabledi                          = OpenGL::vkglIsEnabledi_with_validation;
-    m_dispatch_table.pGLIsFramebuffer                       = OpenGL::vkglIsFramebuffer_with_validation;
-    m_dispatch_table.pGLIsRenderbuffer                      = OpenGL::vkglIsRenderbuffer_with_validation;
-    m_dispatch_table.pGLIsVertexArray                       = OpenGL::vkglIsVertexArray_with_validation;
-    m_dispatch_table.pGLMapBufferRange                      = OpenGL::vkglMapBufferRange_with_validation;
-    m_dispatch_table.pGLRenderbufferStorage                 = OpenGL::vkglRenderbufferStorage_with_validation;
-    m_dispatch_table.pGLRenderbufferStorageMultisample      = OpenGL::vkglRenderbufferStorageMultisample_with_validation;
-    m_dispatch_table.pGLTexParameterIiv                     = OpenGL::vkglTexParameterIiv_with_validation;
-    m_dispatch_table.pGLTexParameterIuiv                    = OpenGL::vkglTexParameterIuiv_with_validation;
-    m_dispatch_table.pGLTransformFeedbackVaryings           = OpenGL::vkglTransformFeedbackVaryings_with_validation;
-    m_dispatch_table.pGLUniform1ui                          = OpenGL::vkglUniform1ui_with_validation;
-    m_dispatch_table.pGLUniform1uiv                         = OpenGL::vkglUniform1uiv_with_validation;
-    m_dispatch_table.pGLUniform2ui                          = OpenGL::vkglUniform2ui_with_validation;
-    m_dispatch_table.pGLUniform2uiv                         = OpenGL::vkglUniform2uiv_with_validation;
-    m_dispatch_table.pGLUniform3ui                          = OpenGL::vkglUniform3ui_with_validation;
-    m_dispatch_table.pGLUniform3uiv                         = OpenGL::vkglUniform3uiv_with_validation;
-    m_dispatch_table.pGLUniform4ui                          = OpenGL::vkglUniform4ui_with_validation;
-    m_dispatch_table.pGLUniform4uiv                         = OpenGL::vkglUniform4uiv_with_validation;
-    m_dispatch_table.pGLVertexAttribI1i                     = OpenGL::vkglVertexAttribI1i_with_validation;
-    m_dispatch_table.pGLVertexAttribI1iv                    = OpenGL::vkglVertexAttribI1iv_with_validation;
-    m_dispatch_table.pGLVertexAttribI1ui                    = OpenGL::vkglVertexAttribI1ui_with_validation;
-    m_dispatch_table.pGLVertexAttribI1uiv                   = OpenGL::vkglVertexAttribI1uiv_with_validation;
-    m_dispatch_table.pGLVertexAttribI2i                     = OpenGL::vkglVertexAttribI2i_with_validation;
-    m_dispatch_table.pGLVertexAttribI2iv                    = OpenGL::vkglVertexAttribI2iv_with_validation;
-    m_dispatch_table.pGLVertexAttribI2ui                    = OpenGL::vkglVertexAttribI2ui_with_validation;
-    m_dispatch_table.pGLVertexAttribI2uiv                   = OpenGL::vkglVertexAttribI2uiv_with_validation;
-    m_dispatch_table.pGLVertexAttribI3i                     = OpenGL::vkglVertexAttribI3i_with_validation;
-    m_dispatch_table.pGLVertexAttribI3iv                    = OpenGL::vkglVertexAttribI3iv_with_validation;
-    m_dispatch_table.pGLVertexAttribI3ui                    = OpenGL::vkglVertexAttribI3ui_with_validation;
-    m_dispatch_table.pGLVertexAttribI3uiv                   = OpenGL::vkglVertexAttribI3uiv_with_validation;
-    m_dispatch_table.pGLVertexAttribI4bv                    = OpenGL::vkglVertexAttribI4bv_with_validation;
-    m_dispatch_table.pGLVertexAttribI4i                     = OpenGL::vkglVertexAttribI4i_with_validation;
-    m_dispatch_table.pGLVertexAttribI4iv                    = OpenGL::vkglVertexAttribI4iv_with_validation;
-    m_dispatch_table.pGLVertexAttribI4sv                    = OpenGL::vkglVertexAttribI4sv_with_validation;
-    m_dispatch_table.pGLVertexAttribI4ubv                   = OpenGL::vkglVertexAttribI4ubv_with_validation;
-    m_dispatch_table.pGLVertexAttribI4ui                    = OpenGL::vkglVertexAttribI4ui_with_validation;
-    m_dispatch_table.pGLVertexAttribI4uiv                   = OpenGL::vkglVertexAttribI4uiv_with_validation;
-    m_dispatch_table.pGLVertexAttribI4usv                   = OpenGL::vkglVertexAttribI4usv_with_validation;
-    m_dispatch_table.pGLVertexAttribIPointer                = OpenGL::vkglVertexAttribIPointer_with_validation;
+    m_dispatch_table.pGLBeginConditionalRender              = glBeginConditionalRender;
+    m_dispatch_table.pGLBeginTransformFeedback              = glBeginTransformFeedback;
+    m_dispatch_table.pGLBindBufferBase                      = glBindBufferBase;
+    m_dispatch_table.pGLBindBufferRange                     = glBindBufferRange;
+    m_dispatch_table.pGLBindFragDataLocation                = glBindFragDataLocation;
+    m_dispatch_table.pGLBindFramebuffer                     = glBindFramebuffer;
+    m_dispatch_table.pGLBindRenderbuffer                    = glBindRenderbuffer;
+    m_dispatch_table.pGLBindVertexArray                     = glBindVertexArray;
+    m_dispatch_table.pGLBlitFramebuffer                     = glBlitFramebuffer;
+    m_dispatch_table.pGLCheckFramebufferStatus              = glCheckFramebufferStatus;
+    m_dispatch_table.pGLClampColor                          = glClampColor;
+    m_dispatch_table.pGLClearBufferfi                       = glClearBufferfi;
+    m_dispatch_table.pGLClearBufferfv                       = glClearBufferfv;
+    m_dispatch_table.pGLClearBufferiv                       = glClearBufferiv;
+    m_dispatch_table.pGLClearBufferuiv                      = glClearBufferuiv;
+    m_dispatch_table.pGLColorMaski                          = glColorMaski;
+    m_dispatch_table.pGLDeleteFramebuffers                  = glDeleteFramebuffers;
+    m_dispatch_table.pGLDeleteRenderbuffers                 = glDeleteRenderbuffers;
+    m_dispatch_table.pGLDeleteVertexArrays                  = glDeleteVertexArrays;
+    m_dispatch_table.pGLDisablei                            = glDisablei;
+    m_dispatch_table.pGLEnablei                             = glEnablei;
+    m_dispatch_table.pGLEndConditionalRender                = glEndConditionalRender;
+    m_dispatch_table.pGLEndTransformFeedback                = glEndTransformFeedback;
+    m_dispatch_table.pGLFlushMappedBufferRange              = glFlushMappedBufferRange;
+    m_dispatch_table.pGLFramebufferRenderbuffer             = glFramebufferRenderbuffer;
+    m_dispatch_table.pGLFramebufferTexture1D                = glFramebufferTexture1D;
+    m_dispatch_table.pGLFramebufferTexture2D                = glFramebufferTexture2D;
+    m_dispatch_table.pGLFramebufferTexture3D                = glFramebufferTexture3D;
+    m_dispatch_table.pGLFramebufferTextureLayer             = glFramebufferTextureLayer;
+    m_dispatch_table.pGLGenerateMipmap                      = glGenerateMipmap;
+    m_dispatch_table.pGLGenFramebuffers                     = glGenFramebuffers;
+    m_dispatch_table.pGLGenRenderbuffers                    = glGenRenderbuffers;
+    m_dispatch_table.pGLGenVertexArrays                     = glGenVertexArrays;
+    m_dispatch_table.pGLGetBooleani_v                       = glGetBooleani_v;
+    m_dispatch_table.pGLGetFragDataLocation                 = glGetFragDataLocation;
+    m_dispatch_table.pGLGetFramebufferAttachmentParameteriv = glGetFramebufferAttachmentParameteriv;
+    m_dispatch_table.pGLGetIntegeri_v                       = glGetIntegeri_v;
+    m_dispatch_table.pGLGetRenderbufferParameteriv          = glGetRenderbufferParameteriv;
+    m_dispatch_table.pGLGetStringi                          = glGetStringi;
+    m_dispatch_table.pGLGetTexParameterIiv                  = glGetTexParameterIiv;
+    m_dispatch_table.pGLGetTexParameterIuiv                 = glGetTexParameterIuiv;
+    m_dispatch_table.pGLGetTransformFeedbackVarying         = glGetTransformFeedbackVarying;
+    m_dispatch_table.pGLGetUniformuiv                       = glGetUniformuiv;
+    m_dispatch_table.pGLGetVertexAttribIiv                  = glGetVertexAttribIiv;
+    m_dispatch_table.pGLGetVertexAttribIuiv                 = glGetVertexAttribIuiv;
+    m_dispatch_table.pGLIsEnabledi                          = glIsEnabledi;
+    m_dispatch_table.pGLIsFramebuffer                       = glIsFramebuffer;
+    m_dispatch_table.pGLIsRenderbuffer                      = glIsRenderbuffer;
+    m_dispatch_table.pGLIsVertexArray                       = glIsVertexArray;
+    m_dispatch_table.pGLMapBufferRange                      = glMapBufferRange;
+    m_dispatch_table.pGLRenderbufferStorage                 = glRenderbufferStorage;
+    m_dispatch_table.pGLRenderbufferStorageMultisample      = glRenderbufferStorageMultisample;
+    m_dispatch_table.pGLTexParameterIiv                     = glTexParameterIiv;
+    m_dispatch_table.pGLTexParameterIuiv                    = glTexParameterIuiv;
+    m_dispatch_table.pGLTransformFeedbackVaryings           = glTransformFeedbackVaryings;
+    m_dispatch_table.pGLUniform1ui                          = glUniform1ui;
+    m_dispatch_table.pGLUniform1uiv                         = glUniform1uiv;
+    m_dispatch_table.pGLUniform2ui                          = glUniform2ui;
+    m_dispatch_table.pGLUniform2uiv                         = glUniform2uiv;
+    m_dispatch_table.pGLUniform3ui                          = glUniform3ui;
+    m_dispatch_table.pGLUniform3uiv                         = glUniform3uiv;
+    m_dispatch_table.pGLUniform4ui                          = glUniform4ui;
+    m_dispatch_table.pGLUniform4uiv                         = glUniform4uiv;
+    m_dispatch_table.pGLVertexAttribI1i                     = glVertexAttribI1i;
+    m_dispatch_table.pGLVertexAttribI1iv                    = glVertexAttribI1iv;
+    m_dispatch_table.pGLVertexAttribI1ui                    = glVertexAttribI1ui;
+    m_dispatch_table.pGLVertexAttribI1uiv                   = glVertexAttribI1uiv;
+    m_dispatch_table.pGLVertexAttribI2i                     = glVertexAttribI2i;
+    m_dispatch_table.pGLVertexAttribI2iv                    = glVertexAttribI2iv;
+    m_dispatch_table.pGLVertexAttribI2ui                    = glVertexAttribI2ui;
+    m_dispatch_table.pGLVertexAttribI2uiv                   = glVertexAttribI2uiv;
+    m_dispatch_table.pGLVertexAttribI3i                     = glVertexAttribI3i;
+    m_dispatch_table.pGLVertexAttribI3iv                    = glVertexAttribI3iv;
+    m_dispatch_table.pGLVertexAttribI3ui                    = glVertexAttribI3ui;
+    m_dispatch_table.pGLVertexAttribI3uiv                   = glVertexAttribI3uiv;
+    m_dispatch_table.pGLVertexAttribI4bv                    = glVertexAttribI4bv;
+    m_dispatch_table.pGLVertexAttribI4i                     = glVertexAttribI4i;
+    m_dispatch_table.pGLVertexAttribI4iv                    = glVertexAttribI4iv;
+    m_dispatch_table.pGLVertexAttribI4sv                    = glVertexAttribI4sv;
+    m_dispatch_table.pGLVertexAttribI4ubv                   = glVertexAttribI4ubv;
+    m_dispatch_table.pGLVertexAttribI4ui                    = glVertexAttribI4ui;
+    m_dispatch_table.pGLVertexAttribI4uiv                   = glVertexAttribI4uiv;
+    m_dispatch_table.pGLVertexAttribI4usv                   = glVertexAttribI4usv;
+    m_dispatch_table.pGLVertexAttribIPointer                = glVertexAttribIPointer;
 
-    m_dispatch_table.pGLCopyBufferSubData         = OpenGL::vkglCopyBufferSubData_with_validation;
-    m_dispatch_table.pGLDrawArraysInstanced       = OpenGL::vkglDrawArraysInstanced_with_validation;
-    m_dispatch_table.pGLDrawElementsInstanced     = OpenGL::vkglDrawElementsInstanced_with_validation;
-    m_dispatch_table.pGLGetActiveUniformsiv       = OpenGL::vkglGetActiveUniformsiv_with_validation;
-    m_dispatch_table.pGLGetActiveUniformBlockiv   = OpenGL::vkglGetActiveUniformBlockiv_with_validation;
-    m_dispatch_table.pGLGetActiveUniformBlockName = OpenGL::vkglGetActiveUniformBlockName_with_validation;
-    m_dispatch_table.pGLGetActiveUniformName      = OpenGL::vkglGetActiveUniformName_with_validation;
-    m_dispatch_table.pGLGetUniformBlockIndex      = OpenGL::vkglGetUniformBlockIndex_with_validation;
-    m_dispatch_table.pGLGetUniformIndices         = OpenGL::vkglGetUniformIndices_with_validation;
-    m_dispatch_table.pGLPrimitiveRestartIndex     = OpenGL::vkglPrimitiveRestartIndex_with_validation;
-    m_dispatch_table.pGLTexBuffer                 = OpenGL::vkglTexBuffer_with_validation;
-    m_dispatch_table.pGLUniformBlockBinding       = OpenGL::vkglUniformBlockBinding_with_validation;
+    m_dispatch_table.pGLCopyBufferSubData         = glCopyBufferSubData;
+    m_dispatch_table.pGLDrawArraysInstanced       = glDrawArraysInstanced;
+    m_dispatch_table.pGLDrawElementsInstanced     = glDrawElementsInstanced;
+    m_dispatch_table.pGLGetActiveUniformsiv       = glGetActiveUniformsiv;
+    m_dispatch_table.pGLGetActiveUniformBlockiv   = glGetActiveUniformBlockiv;
+    m_dispatch_table.pGLGetActiveUniformBlockName = glGetActiveUniformBlockName;
+    m_dispatch_table.pGLGetActiveUniformName      = glGetActiveUniformName;
+    m_dispatch_table.pGLGetUniformBlockIndex      = glGetUniformBlockIndex;
+    m_dispatch_table.pGLGetUniformIndices         = glGetUniformIndices;
+    m_dispatch_table.pGLPrimitiveRestartIndex     = glPrimitiveRestartIndex;
+    m_dispatch_table.pGLTexBuffer                 = glTexBuffer;
+    m_dispatch_table.pGLUniformBlockBinding       = glUniformBlockBinding;
 
-    m_dispatch_table.pGLClientWaitSync                  = OpenGL::vkglClientWaitSync_with_validation;
-    m_dispatch_table.pGLDeleteSync                      = OpenGL::vkglDeleteSync_with_validation;
-    m_dispatch_table.pGLDrawElementsBaseVertex          = OpenGL::vkglDrawElementsBaseVertex_with_validation;
-    m_dispatch_table.pGLDrawElementsInstancedBaseVertex = OpenGL::vkglDrawElementsInstancedBaseVertex_with_validation;
-    m_dispatch_table.pGLDrawRangeElementsBaseVertex     = OpenGL::vkglDrawRangeElementsBaseVertex_with_validation;
-    m_dispatch_table.pGLFenceSync                       = OpenGL::vkglFenceSync_with_validation;
-    m_dispatch_table.pGLFramebufferTexture              = OpenGL::vkglFramebufferTexture_with_validation;
-    m_dispatch_table.pGLGetBufferParameteri64v          = OpenGL::vkglGetBufferParameteri64v_with_validation;
-    m_dispatch_table.pGLGetInteger64i_v                 = OpenGL::vkglGetInteger64i_v_with_validation;
-    m_dispatch_table.pGLGetInteger64v                   = OpenGL::vkglGetInteger64v_with_validation;
-    m_dispatch_table.pGLGetMultisamplefv                = OpenGL::vkglGetMultisamplefv_with_validation;
-    m_dispatch_table.pGLGetSynciv                       = OpenGL::vkglGetSynciv_with_validation;
-    m_dispatch_table.pGLIsSync                          = OpenGL::vkglIsSync_with_validation;
-    m_dispatch_table.pGLMultiDrawElementsBaseVertex     = OpenGL::vkglMultiDrawElementsBaseVertex_with_validation;
-    m_dispatch_table.pGLProvokingVertex                 = OpenGL::vkglProvokingVertex_with_validation;
-    m_dispatch_table.pGLSampleMaski                     = OpenGL::vkglSampleMaski_with_validation;
-    m_dispatch_table.pGLTexImage2DMultisample           = OpenGL::vkglTexImage2DMultisample_with_validation;
-    m_dispatch_table.pGLTexImage3DMultisample           = OpenGL::vkglTexImage3DMultisample_with_validation;
-    m_dispatch_table.pGLWaitSync                        = OpenGL::vkglWaitSync_with_validation;
+    m_dispatch_table.pGLClientWaitSync                  = glClientWaitSync;
+    m_dispatch_table.pGLDeleteSync                      = glDeleteSync;
+    m_dispatch_table.pGLDrawElementsBaseVertex          = glDrawElementsBaseVertex;
+    m_dispatch_table.pGLDrawElementsInstancedBaseVertex = glDrawElementsInstancedBaseVertex;
+    m_dispatch_table.pGLDrawRangeElementsBaseVertex     = glDrawRangeElementsBaseVertex;
+    m_dispatch_table.pGLFenceSync                       = glFenceSync;
+    m_dispatch_table.pGLFramebufferTexture              = glFramebufferTexture;
+    m_dispatch_table.pGLGetBufferParameteri64v          = glGetBufferParameteri64v;
+    m_dispatch_table.pGLGetInteger64i_v                 = glGetInteger64i_v;
+    m_dispatch_table.pGLGetInteger64v                   = glGetInteger64v;
+    m_dispatch_table.pGLGetMultisamplefv                = glGetMultisamplefv;
+    m_dispatch_table.pGLGetSynciv                       = glGetSynciv;
+    m_dispatch_table.pGLIsSync                          = glIsSync;
+    m_dispatch_table.pGLMultiDrawElementsBaseVertex     = glMultiDrawElementsBaseVertex;
+    m_dispatch_table.pGLProvokingVertex                 = glProvokingVertex;
+    m_dispatch_table.pGLSampleMaski                     = glSampleMaski;
+    m_dispatch_table.pGLTexImage2DMultisample           = glTexImage2DMultisample;
+    m_dispatch_table.pGLTexImage3DMultisample           = glTexImage3DMultisample;
+    m_dispatch_table.pGLWaitSync                        = glWaitSync;
 
     result = true;
     return result;
@@ -3177,6 +3547,8 @@ bool OpenGL::Context::init_dispatch_table()
 
 bool OpenGL::Context::init_supported_extensions()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     bool result = false;
 
     vkgl_assert(m_supported_extensions.size() == 0);
@@ -3249,7 +3621,7 @@ bool OpenGL::Context::is_buffer(const GLuint& in_id) const
 
 bool OpenGL::Context::is_enabled(const OpenGL::Capability& in_capability) const
 {
-#if 0
+#if true
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     return m_gl_state_manager_ptr->is_enabled(in_capability);
@@ -3309,6 +3681,8 @@ bool OpenGL::Context::is_shader(const GLuint& in_shader) const
 
 bool OpenGL::Context::is_sync(const GLsync& in_sync)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 
     return false;
@@ -3323,13 +3697,15 @@ bool OpenGL::Context::is_texture(const GLuint& in_texture) const
 
 bool OpenGL::Context::is_vertex_array(const GLuint& in_array) const
 {
-    vkgl_not_implemented();
+    vkgl_assert(m_gl_vao_manager_ptr != nullptr);
 
-    return false;
+    return m_gl_vao_manager_ptr->is_alive_id(in_array);
 }
 
 void OpenGL::Context::link_program(const GLuint& in_program)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
 
     m_backend_gl_callbacks_ptr->link_program(in_program);
@@ -3338,6 +3714,8 @@ void OpenGL::Context::link_program(const GLuint& in_program)
 void* OpenGL::Context::map_buffer(const OpenGL::BufferTarget& in_target,
                                   const OpenGL::BufferAccess& in_access)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
     vkgl_assert(m_gl_buffer_manager_ptr    != nullptr);
     vkgl_assert(m_gl_state_manager_ptr     != nullptr);
@@ -3360,6 +3738,8 @@ void* OpenGL::Context::map_buffer_range(const OpenGL::BufferTarget& in_target,
                                         const GLsizeiptr&           in_length,
                                         const OpenGL::BufferAccess& in_access)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr     != nullptr);
 
@@ -3377,7 +3757,9 @@ void OpenGL::Context::multi_draw_arrays(const OpenGL::DrawCallMode& in_mode,
                                         const GLsizei*              in_count_ptr,
                                         const GLsizei&              in_drawcount)
 {
-#if 0
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+#if true
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
 
     m_backend_gl_callbacks_ptr->multi_draw_arrays(in_mode,
@@ -3395,7 +3777,9 @@ void OpenGL::Context::multi_draw_elements(const OpenGL::DrawCallMode&      in_mo
                                           const void* const*               in_indices_ptr,
                                           const GLsizei&                   in_drawcount)
 {
-#if 0
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+#if true
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
 
     m_backend_gl_callbacks_ptr->multi_draw_elements(in_mode,
@@ -3415,11 +3799,15 @@ void OpenGL::Context::multi_draw_elements_base_vertex(const OpenGL::DrawCallMode
                                                       const GLsizei&                   in_drawcount,
                                                       const GLint*                     in_basevertex_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::Context::present()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     m_backend_gl_callbacks_ptr->present();
 }
 
@@ -3431,7 +3819,9 @@ void OpenGL::Context::read_pixels(const int32_t&             in_x,
                                   const OpenGL::PixelType&   in_type,
                                   void*                      out_pixels_ptr)
 {
-#if 0
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+#if true
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
 
     m_backend_gl_callbacks_ptr->read_pixels(in_x,
@@ -3448,6 +3838,8 @@ void OpenGL::Context::read_pixels(const int32_t&             in_x,
 
 void OpenGL::Context::set_active_texture(const uint32_t& in_n_texture_unit)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     m_gl_state_manager_ptr->set_active_texture(in_n_texture_unit);
@@ -3458,6 +3850,8 @@ void OpenGL::Context::set_blend_color(const float& in_red,
                                       const float& in_blue,
                                       const float& in_alpha)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     m_gl_state_manager_ptr->set_blend_color(in_red,
@@ -3468,6 +3862,8 @@ void OpenGL::Context::set_blend_color(const float& in_red,
 
 void OpenGL::Context::set_blend_equation(const OpenGL::BlendEquation& in_blend_equation)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     m_gl_state_manager_ptr->set_blend_equation(in_blend_equation);
@@ -3476,12 +3872,16 @@ void OpenGL::Context::set_blend_equation(const OpenGL::BlendEquation& in_blend_e
 void OpenGL::Context::set_blend_equation_separate(const OpenGL::BlendEquation& in_modeRGB,
                                                   const OpenGL::BlendEquation& in_modeAlpha)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::Context::set_blend_functions(const OpenGL::BlendFunction& in_src_rgba_function,
                                           const OpenGL::BlendFunction& in_dst_rgba_function)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     m_gl_state_manager_ptr->set_blend_functions(in_src_rgba_function,
@@ -3493,6 +3893,8 @@ void OpenGL::Context::set_blend_functions_separate(const OpenGL::BlendFunction& 
                                                    const OpenGL::BlendFunction& in_src_alpha_function,
                                                    const OpenGL::BlendFunction& in_dst_alpha_function)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     m_gl_state_manager_ptr->set_blend_functions_separate(in_src_rgb_function,
@@ -3503,6 +3905,8 @@ void OpenGL::Context::set_blend_functions_separate(const OpenGL::BlendFunction& 
 
 void OpenGL::Context::set_clamp_color(const bool& in_enable)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -3511,6 +3915,8 @@ void OpenGL::Context::set_clear_color_value(const float& in_red,
                                             const float& in_blue,
                                             const float& in_alpha)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     m_gl_state_manager_ptr->set_clear_color_value(in_red,
@@ -3521,6 +3927,8 @@ void OpenGL::Context::set_clear_color_value(const float& in_red,
 
 void OpenGL::Context::set_clear_depth_value(const double& in_value)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     m_gl_state_manager_ptr->set_clear_depth_value(in_value);
@@ -3528,6 +3936,8 @@ void OpenGL::Context::set_clear_depth_value(const double& in_value)
 
 void OpenGL::Context::set_clear_stencil_value(const int& in_value)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     m_gl_state_manager_ptr->set_clear_stencil_value(in_value);
@@ -3538,6 +3948,8 @@ void OpenGL::Context::set_color_mask(const bool& in_red,
                                      const bool& in_blue,
                                      const bool& in_alpha)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     m_gl_state_manager_ptr->set_color_mask(in_red,
@@ -3552,11 +3964,15 @@ void OpenGL::Context::set_color_mask_indexed(const GLuint& in_index,
                                              const bool&   in_b,
                                              const bool&   in_a)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::Context::set_cull_mode(const OpenGL::CullMode& in_mode)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     m_gl_state_manager_ptr->set_cull_mode(in_mode);
@@ -3564,6 +3980,8 @@ void OpenGL::Context::set_cull_mode(const OpenGL::CullMode& in_mode)
 
 void OpenGL::Context::set_depth_function(const OpenGL::DepthFunction& in_function)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     m_gl_state_manager_ptr->set_depth_function(in_function);
@@ -3571,6 +3989,8 @@ void OpenGL::Context::set_depth_function(const OpenGL::DepthFunction& in_functio
 
 void OpenGL::Context::set_depth_mask(const bool& in_flag)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     m_gl_state_manager_ptr->set_depth_mask(in_flag);
@@ -3579,6 +3999,8 @@ void OpenGL::Context::set_depth_mask(const bool& in_flag)
 void OpenGL::Context::set_depth_range(const double& in_near,
                                       const double& in_far)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     m_gl_state_manager_ptr->set_depth_range(in_near,
@@ -3587,6 +4009,8 @@ void OpenGL::Context::set_depth_range(const double& in_near,
 
 void OpenGL::Context::set_draw_buffer(const OpenGL::DrawBuffer& in_draw_buffer)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_framebuffer_manager_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr       != nullptr);
 
@@ -3601,6 +4025,8 @@ void OpenGL::Context::set_draw_buffer(const OpenGL::DrawBuffer& in_draw_buffer)
 void OpenGL::Context::set_draw_buffers(const GLsizei&            in_n,
                                        const OpenGL::DrawBuffer* in_bufs_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_framebuffer_manager_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr       != nullptr);
 
@@ -3614,6 +4040,8 @@ void OpenGL::Context::set_draw_buffers(const GLsizei&            in_n,
 
 void OpenGL::Context::set_front_face_orientation(const OpenGL::FrontFaceOrientation& in_orientation)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     m_gl_state_manager_ptr->set_front_face_orientation(in_orientation);
@@ -3622,6 +4050,8 @@ void OpenGL::Context::set_front_face_orientation(const OpenGL::FrontFaceOrientat
 void OpenGL::Context::set_hint(const OpenGL::HintTarget& in_target,
                                const OpenGL::HintMode&   in_mode)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     m_gl_state_manager_ptr->set_hint(in_target,
@@ -3630,6 +4060,8 @@ void OpenGL::Context::set_hint(const OpenGL::HintTarget& in_target,
 
 void OpenGL::Context::set_line_width(const float& in_width)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     m_gl_state_manager_ptr->set_line_width(in_width);
@@ -3637,6 +4069,8 @@ void OpenGL::Context::set_line_width(const float& in_width)
 
 void OpenGL::Context::set_logic_op(const OpenGL::LogicOpMode& in_mode)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     m_gl_state_manager_ptr->set_logic_op(in_mode);
@@ -3649,13 +4083,26 @@ void OpenGL::Context::set_matrix_uniform(const GLint&    in_location,
                                          const bool&     in_transpose,
                                          const GLfloat*  in_value_ptr)
 {
-    vkgl_not_implemented();
+    FUN_ENTRY(DEBUG_DEPTH);
+    //vkgl_not_implemented();
+    
+    vkgl_assert(m_gl_state_manager_ptr   != nullptr);
+    vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
+    
+    auto program_id = m_gl_state_manager_ptr->get_state()->program_proxy_reference_ptr->get_payload().id;
+    
+    m_backend_gl_callbacks_ptr->update_uniform_data(program_id,
+    													in_location,
+    													in_n_array_items,
+    													in_value_ptr);
 }
 
 void OpenGL::Context::set_pixel_store_property(const OpenGL::PixelStoreProperty& in_property,
                                                const OpenGL::GetSetArgumentType& in_arg_type,
                                                const void*                     in_arg_value_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     m_gl_state_manager_ptr->set_pixel_store_property(in_property,
@@ -3667,6 +4114,8 @@ void OpenGL::Context::set_point_property(const OpenGL::PointProperty&      in_pr
                                          const OpenGL::GetSetArgumentType& in_arg_type,
                                          const void*                       in_arg_value_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     m_gl_state_manager_ptr->set_point_property(in_property,
@@ -3676,6 +4125,8 @@ void OpenGL::Context::set_point_property(const OpenGL::PointProperty&      in_pr
 
 void OpenGL::Context::set_point_size(const float& in_size)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     m_gl_state_manager_ptr->set_point_size(in_size);
@@ -3683,6 +4134,8 @@ void OpenGL::Context::set_point_size(const float& in_size)
 
 void OpenGL::Context::set_polygon_mode(const OpenGL::PolygonMode& in_mode)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     m_gl_state_manager_ptr->set_polygon_mode(in_mode);
@@ -3691,6 +4144,8 @@ void OpenGL::Context::set_polygon_mode(const OpenGL::PolygonMode& in_mode)
 void OpenGL::Context::set_polygon_offset(const GLfloat& in_factor,
                                          const GLfloat& in_units)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     m_gl_state_manager_ptr->set_polygon_offset(in_factor,
@@ -3699,16 +4154,22 @@ void OpenGL::Context::set_polygon_offset(const GLfloat& in_factor,
 
 void OpenGL::Context::set_primitive_restart_index(const GLuint& in_index)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::Context::set_provoking_vertex(const OpenGL::ProvokingVertexConvention& in_mode)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::Context::set_read_buffer(const OpenGL::ReadBuffer& in_read_buffer)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_framebuffer_manager_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr       != nullptr);
 
@@ -3724,9 +4185,12 @@ void OpenGL::Context::set_renderbuffer_storage(const OpenGL::RenderbufferTarget&
                                                const GLsizei&                    in_width,
                                                const GLsizei&                    in_height)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_backend_gl_callbacks_ptr    != nullptr);
     vkgl_assert(m_gl_renderbuffer_manager_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr        != nullptr);
+    vkgl_assert(m_gl_limits_ptr        			!= nullptr);
 
     const auto renderbuffer_id = m_gl_state_manager_ptr->get_bound_renderbuffer_object()->get_payload().id;
     vkgl_assert(renderbuffer_id != 0);
@@ -3750,6 +4214,8 @@ void OpenGL::Context::set_renderbuffer_storage_multisample(const OpenGL::Renderb
                                                            const GLsizei&                    in_width,
                                                            const GLsizei&                    in_height)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_backend_gl_callbacks_ptr    != nullptr);
     vkgl_assert(m_gl_renderbuffer_manager_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr        != nullptr);
@@ -3773,6 +4239,8 @@ void OpenGL::Context::set_renderbuffer_storage_multisample(const OpenGL::Renderb
 void OpenGL::Context::set_sample_coverage(const GLfloat&   in_value,
                                           const GLboolean& in_invert)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     m_gl_state_manager_ptr->set_sample_coverage(in_value,
@@ -3782,6 +4250,8 @@ void OpenGL::Context::set_sample_coverage(const GLfloat&   in_value,
 void OpenGL::Context::set_sample_mask_indexed(const GLuint&     in_mask_number,
                                               const GLbitfield& in_mask)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -3790,6 +4260,8 @@ void OpenGL::Context::set_scissor(const int32_t& in_x,
                                   const size_t&  in_width,
                                   const size_t&  in_height)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     m_gl_state_manager_ptr->set_scissor(in_x,
@@ -3803,6 +4275,8 @@ void OpenGL::Context::set_shader_source(const GLuint&        in_shader,
                                         const GLchar* const* in_string_ptr_ptr,
                                         const GLint*         in_length_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     std::stringstream result_stream;
 
     /* Form the GLSL string */
@@ -3845,6 +4319,8 @@ void OpenGL::Context::set_stencil_function(const OpenGL::StencilFunction& in_fun
                                            const int32_t&                 in_ref,
                                            const uint32_t&                in_mask)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     m_gl_state_manager_ptr->set_stencil_function(in_func,
@@ -3857,11 +4333,15 @@ void OpenGL::Context::set_stencil_function_separate(const OpenGL::StencilStateFa
                                                     const GLint&                    in_ref,
                                                     const GLuint&                   in_mask)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::Context::set_stencil_mask(const uint32_t& in_mask)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     m_gl_state_manager_ptr->set_stencil_mask(in_mask);
@@ -3870,6 +4350,8 @@ void OpenGL::Context::set_stencil_mask(const uint32_t& in_mask)
 void OpenGL::Context::set_stencil_mask_separate(const OpenGL::StencilStateFace& in_face,
                                                 const GLuint&                   in_mask)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -3877,6 +4359,8 @@ void OpenGL::Context::set_stencil_operations(const OpenGL::StencilOperation& in_
                                              const OpenGL::StencilOperation& in_zfail,
                                              const OpenGL::StencilOperation& in_zpass)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     m_gl_state_manager_ptr->set_stencil_operations(in_fail,
@@ -3889,6 +4373,8 @@ void OpenGL::Context::set_stencil_operations_separate(const OpenGL::StencilState
                                                       const OpenGL::StencilOperation& in_dpfail,
                                                       const OpenGL::StencilOperation& in_dppass)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -3897,6 +4383,8 @@ void OpenGL::Context::set_texture_parameter(const OpenGL::TextureTarget&      in
                                             const OpenGL::GetSetArgumentType& in_arg_type,
                                             const void*                       in_arg_value_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr   != nullptr);
     vkgl_assert(m_gl_texture_manager_ptr != nullptr);
 
@@ -3923,6 +4411,8 @@ void OpenGL::Context::set_transform_feedback_varyings(const GLuint&             
                                                       const GLchar* const*                       in_varyings_ptr_ptr,
                                                       const OpenGL::TransformFeedbackBufferMode& in_buffer_mode)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -3932,13 +4422,26 @@ void OpenGL::Context::set_uniform(const GLint&                      in_location,
                                   const uint32_t&                   in_n_array_items,
                                   const void*                       in_data_ptr)
 {
-    vkgl_not_implemented();
+    FUN_ENTRY(DEBUG_DEPTH);
+    //vkgl_not_implemented();
+    
+    vkgl_assert(m_gl_state_manager_ptr   != nullptr);
+    vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
+    
+    auto program_id = m_gl_state_manager_ptr->get_state()->program_proxy_reference_ptr->get_payload().id;
+    
+    m_backend_gl_callbacks_ptr->update_uniform_data(program_id,
+    													in_location,
+    													in_n_array_items,
+    													in_data_ptr);
 }
 
 void OpenGL::Context::set_uniform_block_binding(const GLuint& in_program,
                                                 const GLuint& in_uniform_block_index,
                                                 const GLuint& in_uniform_block_binding)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_program_manager_ptr != nullptr);
 
     m_gl_program_manager_ptr->set_uniform_block_binding(in_program,
@@ -3949,9 +4452,13 @@ void OpenGL::Context::set_uniform_block_binding(const GLuint& in_program,
 bool OpenGL::Context::set_vaa_enabled_state(const GLuint& in_index,
                                             const bool&   in_new_state)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     GLuint                            bound_vao_id;
+    OpenGL::TimeMarker                bound_vao_time_marker;
     bool                              result        = false;
     OpenGL::VertexAttributeArrayState vaa_state;
+    OpenGL::GLBufferReferenceUniquePtr buffer_binding_ptr;
 
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
     vkgl_assert(m_gl_vao_manager_ptr   != nullptr);
@@ -3963,7 +4470,8 @@ bool OpenGL::Context::set_vaa_enabled_state(const GLuint& in_index,
      **/
     auto bound_vao_ptr = m_gl_state_manager_ptr->get_bound_vertex_array_object();
 
-    bound_vao_id = bound_vao_ptr->get_payload().id;
+    bound_vao_id 			= bound_vao_ptr->get_payload().id;
+    bound_vao_time_marker = bound_vao_ptr->get_payload().time_marker;
 
     if (!m_gl_vao_manager_ptr->get_vaa_state_copy(bound_vao_id,
                                                   nullptr, /* in_opt_time_marker_ptr */
@@ -3975,8 +4483,10 @@ bool OpenGL::Context::set_vaa_enabled_state(const GLuint& in_index,
         goto end;
     }
 
-    vaa_state.buffer_binding_ptr = std::move(vaa_state.buffer_binding_ptr); /* moot as per comment above */
-    vaa_state.enabled            = true;
+	buffer_binding_ptr = std::move(vaa_state.buffer_binding_ptr);
+
+    vaa_state.buffer_binding_ptr = std::move(buffer_binding_ptr); /* moot as per comment above */
+    vaa_state.enabled            = in_new_state;
     vaa_state.integer            = vaa_state.integer;        /* moot as per comment above */
     vaa_state.normalized         = vaa_state.normalized;     /* moot as per comment above */
     vaa_state.pointer            = vaa_state.pointer;        /* moot as per comment above */
@@ -4000,6 +4510,8 @@ void OpenGL::Context::set_vertex_attribute(const GLuint&                     in_
                                            const bool&                       in_normalized,
                                            const void*                       in_data_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -4011,6 +4523,8 @@ void OpenGL::Context::set_vertex_attrib_pointer(const GLuint&                   
                                                 const GLsizei&                          in_stride,
                                                 const void*                             in_pointer_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     GLuint                            bound_vao_id;
     OpenGL::TimeMarker                bound_vao_time_marker;
     OpenGL::VertexAttributeArrayState vaa_state;
@@ -4031,7 +4545,7 @@ void OpenGL::Context::set_vertex_attrib_pointer(const GLuint&                   
     bound_vao_time_marker = bound_vao_ptr->get_payload().time_marker;
 
     if (!m_gl_vao_manager_ptr->get_vaa_state_copy(bound_vao_id,
-                                                 &bound_vao_time_marker,
+                                                 nullptr, /* in_opt_time_marker_ptr */
                                                   in_index,
                                                  &vaa_state) )
     {
@@ -4040,7 +4554,7 @@ void OpenGL::Context::set_vertex_attrib_pointer(const GLuint&                   
 
     {
         const auto buffer_id            = m_gl_state_manager_ptr->get_bound_buffer_object                  (OpenGL::BufferTarget::Array_Buffer)->get_payload().id;
-        auto       buffer_reference_ptr = m_gl_buffer_manager_ptr->acquire_always_latest_snapshot_reference(buffer_id);
+        auto       buffer_reference_ptr = m_gl_buffer_manager_ptr->acquire_current_latest_snapshot_reference(buffer_id);
 
         vaa_state.buffer_binding_ptr = std::move(buffer_reference_ptr);
     }
@@ -4063,6 +4577,8 @@ void OpenGL::Context::set_viewport(const int32_t& in_x,
                                    const size_t&  in_width,
                                    const size_t&  in_height)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
 
     m_gl_state_manager_ptr->set_viewport(in_x,
@@ -4074,6 +4590,8 @@ void OpenGL::Context::set_viewport(const int32_t& in_x,
 void OpenGL::Context::tex_buffer(const OpenGL::InternalFormat& in_internalformat,
                                  const GLuint&                 in_buffer)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -4086,6 +4604,8 @@ void OpenGL::Context::tex_image_1d(const OpenGL::TextureTarget&  in_target,
                                    const OpenGL::PixelType&      in_type,
                                    const void*                   in_pixels_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr     != nullptr);
 
@@ -4123,32 +4643,54 @@ void OpenGL::Context::tex_image_2d(const OpenGL::TextureTarget&  in_target,
                                    const OpenGL::PixelType&      in_type,
                                    const void*                   in_pixels_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr     != nullptr);
+    vkgl_assert(m_gl_texture_manager_ptr   != nullptr);
+    vkgl_assert(m_gl_limits_ptr     		!= nullptr);
 
-    const auto active_texture_unit = m_gl_state_manager_ptr->get_state()->active_texture_unit;
-    const auto texture_id          = m_gl_state_manager_ptr->get_texture_binding(active_texture_unit,
-                                                                                 in_target);
-
-    m_gl_texture_manager_ptr->set_texture_mip_properties(texture_id,
-                                                         in_level,
-                                                         in_internalformat,
-                                                         in_width,
-                                                         in_height,
-                                                         1, /* in_depth  */
-                                                         in_border,
-                                                         1,     /* in_n_samples              */
-                                                         true); /* in_fixed_sample_locations */
-
-    m_backend_gl_callbacks_ptr->tex_image_2d(texture_id,
-                                             in_level,
-                                             in_internalformat,
-                                             in_width,
-                                             in_height,
-                                             in_border,
-                                             in_format,
-                                             in_type,
-                                             in_pixels_ptr);
+	if (in_target == OpenGL::TextureTarget::Proxy_Texture_2D 		||
+		in_target == OpenGL::TextureTarget::Proxy_Texture_1D_Array ||
+		in_target == OpenGL::TextureTarget::Proxy_Texture_Rectangle ||
+		in_target == OpenGL::TextureTarget::Proxy_Texture_Cube_Map)
+	{
+        m_gl_texture_manager_ptr->set_texture_mip_properties(0,
+                                                             in_level,
+                                                             in_internalformat,
+                                                             in_width,
+                                                             in_height,
+                                                             1, /* in_depth  */
+                                                             in_border,
+                                                             1,     /* in_n_samples              */
+                                                             true); /* in_fixed_sample_locations */
+	}
+	else
+	{
+	    const auto active_texture_unit = m_gl_state_manager_ptr->get_state()->active_texture_unit;
+        const auto texture_id          = m_gl_state_manager_ptr->get_texture_binding(active_texture_unit,
+                                                                                     in_target);
+        
+        m_gl_texture_manager_ptr->set_texture_mip_properties(texture_id,
+                                                             in_level,
+                                                             in_internalformat,
+                                                             in_width,
+                                                             in_height,
+                                                             1, /* in_depth  */
+                                                             in_border,
+                                                             1,     /* in_n_samples              */
+                                                             true); /* in_fixed_sample_locations */
+    
+        m_backend_gl_callbacks_ptr->tex_image_2d(texture_id,
+                                                 in_level,
+                                                 in_internalformat,
+                                                 in_width,
+                                                 in_height,
+                                                 in_border,
+                                                 in_format,
+                                                 in_type,
+                                                 in_pixels_ptr);
+    }
 }
 
 void OpenGL::Context::tex_image_2d_multisample(const OpenGL::TextureTarget&  in_target,
@@ -4158,6 +4700,8 @@ void OpenGL::Context::tex_image_2d_multisample(const OpenGL::TextureTarget&  in_
                                                const GLsizei&                in_height,
                                                const bool&                   in_fixedsamplelocations)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -4172,6 +4716,8 @@ void OpenGL::Context::tex_image_3d(const OpenGL::TextureTarget&  in_target,
                                    const OpenGL::PixelType&      in_type,
                                    const void*                   in_pixels_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr     != nullptr);
 
@@ -4209,6 +4755,8 @@ void OpenGL::Context::tex_image_3d_multisample(const OpenGL::TextureTarget&  in_
                                                const GLsizei&                in_depth,
                                                const bool&                   in_fixedsamplelocations)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -4220,7 +4768,9 @@ void OpenGL::Context::tex_sub_image_1d(const OpenGL::TextureTarget& in_target,
                                        const OpenGL::PixelType&     in_type,
                                        const void*                  in_pixels)
 {
-#if 0
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+#if true
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr     != nullptr);
 
@@ -4250,7 +4800,9 @@ void OpenGL::Context::tex_sub_image_2d(const OpenGL::TextureTarget& in_target,
                                        const OpenGL::PixelType&     in_type,
                                        const void*                  in_pixels)
 {
-#if 0
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+#if true
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr     != nullptr);
 
@@ -4284,7 +4836,9 @@ void OpenGL::Context::tex_sub_image_3d(const OpenGL::TextureTarget& in_target,
                                        const OpenGL::PixelType&     in_type,
                                        const void*                  in_pixels)
 {
-#if 0
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+#if true
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr     != nullptr);
 
@@ -4310,6 +4864,8 @@ void OpenGL::Context::tex_sub_image_3d(const OpenGL::TextureTarget& in_target,
 
 bool OpenGL::Context::unmap_buffer(const OpenGL::BufferTarget& in_target)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
     vkgl_assert(m_gl_buffer_manager_ptr    != nullptr);
     vkgl_assert(m_gl_state_manager_ptr     != nullptr);
@@ -4322,27 +4878,53 @@ bool OpenGL::Context::unmap_buffer(const OpenGL::BufferTarget& in_target)
 
 void OpenGL::Context::use_program(const GLuint& in_program)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_gl_program_manager_ptr != nullptr);
     vkgl_assert(m_gl_state_manager_ptr   != nullptr);
+    vkgl_assert(m_backend_ptr   		!= nullptr);
+    
+    bool result 			= false;
+    auto spirv_manager_ptr = m_backend_ptr->get_spirv_manager_ptr();
+    vkgl_assert(spirv_manager_ptr != nullptr);
 
-    auto program_reference_ptr = m_gl_program_manager_ptr->acquire_always_latest_snapshot_reference(in_program);
-
-    if (program_reference_ptr == nullptr)
+    auto program_reference_ptr = m_gl_program_manager_ptr->acquire_current_latest_snapshot_reference(in_program);
+    vkgl_assert(program_reference_ptr != nullptr);
+    
+    if (in_program != 0)
     {
-        vkgl_assert(program_reference_ptr != nullptr);
-
-        goto end;
-    }
+        const OpenGL::PostLinkData* post_link_data_ptr = nullptr;
+        OpenGL::SPIRVBlobID 		spirv_id 			= UINT_MAX;
+        
+        {
+            m_gl_program_manager_ptr->get_program_post_link_data_ptr(program_reference_ptr->get_payload().id,
+            																&program_reference_ptr->get_payload().time_marker,
+            																&post_link_data_ptr);
+            vkgl_assert(post_link_data_ptr != nullptr);
+        }
+        
+        {
+            result = spirv_manager_ptr->get_spirv_blob_id_for_program_reference(program_reference_ptr->get_payload().id,
+            																program_reference_ptr->get_payload().time_marker,
+            																&spirv_id);
+        	vkgl_assert(result != false);
+    	}
+    	
+    	{
+        	result = spirv_manager_ptr->build_uniform_resources(spirv_id,
+        													post_link_data_ptr);
+        	vkgl_assert(result != false);
+    	}
+	}
 
     m_gl_program_manager_ptr->mark_id_as_alive      (in_program);
     m_gl_state_manager_ptr->set_bound_program_object(std::move(program_reference_ptr) );
-
-end:
-    ;
 }
 
 void OpenGL::Context::validate_program(const GLuint& in_program)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_backend_gl_callbacks_ptr != nullptr);
 
     m_backend_gl_callbacks_ptr->validate_program(in_program);
@@ -4351,5 +4933,7 @@ void OpenGL::Context::validate_program(const GLuint& in_program)
 void OpenGL::Context::wait_sync(const GLsync&   in_sync,
                                 const GLuint64& in_timeout)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }

@@ -9,6 +9,8 @@
 OpenGL::GLConstants::GLConstants(const IContext* in_context_ptr)
     :m_context_ptr(in_context_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* todo */
 
     m_context_flags            = 0;
@@ -48,6 +50,8 @@ OpenGL::GLConstants::GLConstants(const IContext* in_context_ptr)
 
 OpenGL::GLConstants::~GLConstants()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* Stub */
 }
 
@@ -55,6 +59,8 @@ void OpenGL::GLConstants::get_parameter(const OpenGL::ContextProperty&    in_pna
                                         const OpenGL::GetSetArgumentType& in_arg_type,
                                         void*                             out_arg_value_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const auto pname_iterator = m_prop_map.find(in_pname);
 
     vkgl_assert(pname_iterator != m_prop_map.end() );
@@ -75,6 +81,8 @@ void OpenGL::GLConstants::get_parameter_indexed(const OpenGL::ContextProperty&  
                                                 const uint32_t&                   in_index,
                                                 void*                             out_arg_value_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const auto pname_iterator = m_indexed_prop_map.find(in_pname);
 
     vkgl_assert(pname_iterator != m_indexed_prop_map.end() );
@@ -94,6 +102,8 @@ void OpenGL::GLConstants::get_parameter_indexed(const OpenGL::ContextProperty&  
 
 void OpenGL::GLConstants::init_extension_constants()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const auto& supported_extensions          = m_context_ptr->get_supported_extensions();
     auto        supported_extensions_raw_ptrs = std::vector<const void*>(m_extensions.size() );
 

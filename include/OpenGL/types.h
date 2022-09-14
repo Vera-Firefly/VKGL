@@ -5,7 +5,9 @@
 #ifndef VKGL_TYPES_H
 #define VKGL_TYPES_H
 
-#include "Khronos/GL/glcorearb.h"
+#define GL_GLEXT_PROTOTYPES
+
+#include "Khronos/GL/gl.h"
 #include <cstdint>
 #include <chrono>
 #include <memory>
@@ -34,6 +36,7 @@ namespace OpenGL
     class  GLStateManager;
     class  GLTextureManager;
     class  GLVAOManager;
+    class  GLCompatibilityManager;
     class  IGLLimits;
     class  ThreadPool;
     class  VKBackend;
@@ -43,6 +46,7 @@ namespace OpenGL
     class  VKFrameGraph;
     class  VKGFXPipelineManager;
     class  VKRenderpassManager;
+    class  VKImageManager;
     class  VKScheduler;
     class  VKSPIRVManager;
     class  VKSwapchainManager;
@@ -61,12 +65,18 @@ namespace OpenGL
     typedef std::unique_ptr<VKFrameGraph,            std::function<void(VKFrameGraph*)> >            VKFrameGraphUniquePtr;
     typedef std::unique_ptr<VKGFXPipelineManager>                                                    VKGFXPipelineManagerUniquePtr;
     typedef std::unique_ptr<VKRenderpassManager>                                                     VKRenderpassManagerUniquePtr;
+    typedef std::unique_ptr<VKImageManager>                                                     VKImageManagerUniquePtr;
+    typedef std::unique_ptr<VKImageReference,       std::function<void(VKImageReference*)> >       VKImageReferenceUniquePtr;
     typedef std::unique_ptr<VKScheduler>                                                             VKSchedulerUniquePtr;
     typedef std::unique_ptr<VKSPIRVManager>                                                          VKSPIRVManagerUniquePtr;
     typedef std::unique_ptr<VKSwapchainReference,    std::function<void(VKSwapchainReference*)> >    VKSwapchainReferenceUniquePtr;
 
     typedef uint32_t SPIRVBlobID;
 
+    typedef struct FpeState FpeState;
+    
+    typedef struct UniformResource UniformResource;
+    
     typedef struct PropertyData
     {
         const void*                data_ptr;

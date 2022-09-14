@@ -85,7 +85,8 @@ namespace OpenGL
             Framebuffer& operator=(const Framebuffer&             in_framebuffer);
             Framebuffer           (const Framebuffer&             in_framebuffer,
                                    const bool&                    in_convert_from_proxy_to_nonproxy,
-                                   OpenGL::GLRenderbufferManager* in_frontend_rb_manager_ptr);
+                                   OpenGL::GLRenderbufferManager* in_frontend_rb_manager_ptr,
+                                   OpenGL::GLTextureManager* in_frontend_texture_manager_ptr);
             Framebuffer           (const IGLLimits*               in_limits_ptr);
         } Framebuffer;
 

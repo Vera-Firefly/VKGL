@@ -15,6 +15,8 @@ OpenGL::VKNodes::PresentSwapchainImage::PresentSwapchainImage(const IContextObje
     :m_backend_ptr (in_backend_ptr),
      m_frontend_ptr(in_frontend_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_backend_ptr  != nullptr);
     vkgl_assert(m_frontend_ptr != nullptr);
 
@@ -36,12 +38,16 @@ OpenGL::VKNodes::PresentSwapchainImage::PresentSwapchainImage(const IContextObje
 
 OpenGL::VKNodes::PresentSwapchainImage::~PresentSwapchainImage()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
      /* Stub */
 }
 
 OpenGL::VKFrameGraphNodeUniquePtr OpenGL::VKNodes::PresentSwapchainImage::create(const IContextObjectManagers* in_frontend_ptr,
                                                                                  IBackend*                     in_backend_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     OpenGL::VKFrameGraphNodeUniquePtr result_ptr(nullptr,
                                                  std::default_delete<OpenGL::IVKFrameGraphNode>() );
 
@@ -56,6 +62,8 @@ OpenGL::VKFrameGraphNodeUniquePtr OpenGL::VKNodes::PresentSwapchainImage::create
 
 void OpenGL::VKNodes::PresentSwapchainImage::execute_cpu_side(IVKFrameGraphNodeCallback* in_callback_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto                               device_ptr               = m_backend_ptr->get_device_ptr();
     uint32_t                           n_wait_sems              = 0;
     Anvil::SwapchainOperationErrorCode present_result           = Anvil::SwapchainOperationErrorCode::DEVICE_LOST;

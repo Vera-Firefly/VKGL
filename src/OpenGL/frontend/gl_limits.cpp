@@ -9,6 +9,8 @@
 
 OpenGL::GLLimits::GLLimits(const OpenGL::IBackendCapabilities* in_caps_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     #define QUERY_FLOAT_CAP(CapName, PtrToResult)                               \
         in_caps_ptr->get_capability(CapName,                                   \
                                     OpenGL::GetSetArgumentType::Float,         \
@@ -154,6 +156,8 @@ OpenGL::GLLimits::GLLimits(const OpenGL::IBackendCapabilities* in_caps_ptr)
 
 OpenGL::GLLimits::~GLLimits()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* Stub */
 }
 
@@ -161,6 +165,8 @@ void OpenGL::GLLimits::get_parameter(const OpenGL::ContextProperty&    in_pname,
                                      const OpenGL::GetSetArgumentType& in_arg_type,
                                      void*                             out_arg_value_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const auto prop_iterator = m_prop_map.find(in_pname);
 
     if (prop_iterator == m_prop_map.end() )

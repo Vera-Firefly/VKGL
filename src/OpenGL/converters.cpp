@@ -186,6 +186,118 @@ static void convert_from_i32(const void*                       in_vals_ptr,
                 break;
             }
 
+            case OpenGL::GetSetArgumentType::BlendEquationVKGL:
+            {
+                OpenGL::BlendEquation* result_ptr = reinterpret_cast<OpenGL::BlendEquation*>(out_result_ptr) + n_val;
+
+                *result_ptr = OpenGL::Utils::get_blend_equation_for_gl_enum(in_vals_i32_ptr[n_val]);
+                break;
+            }
+
+            case OpenGL::GetSetArgumentType::BlendFunctionVKGL:
+            {
+                OpenGL::BlendFunction* result_ptr = reinterpret_cast<OpenGL::BlendFunction*>(out_result_ptr) + n_val;
+
+                *result_ptr = OpenGL::Utils::get_blend_function_for_gl_enum(in_vals_i32_ptr[n_val]);
+                break;
+            }
+
+            case OpenGL::GetSetArgumentType::CullFaceVKGL:
+            {
+                OpenGL::CullMode* result_ptr = reinterpret_cast<OpenGL::CullMode*>(out_result_ptr) + n_val;
+
+                *result_ptr = OpenGL::Utils::get_cull_mode_for_gl_enum(in_vals_i32_ptr[n_val]);
+                break;
+            }
+
+            case OpenGL::GetSetArgumentType::DepthFunctionVKGL:
+            {
+                OpenGL::DepthFunction* result_ptr = reinterpret_cast<OpenGL::DepthFunction*>(out_result_ptr) + n_val;
+
+                *result_ptr = OpenGL::Utils::get_depth_function_for_gl_enum(in_vals_i32_ptr[n_val]);
+                break;
+            }
+
+            case OpenGL::GetSetArgumentType::HintModeVKGL:
+            {
+                OpenGL::HintMode* result_ptr = reinterpret_cast<OpenGL::HintMode*>(out_result_ptr) + n_val;
+
+                *result_ptr = OpenGL::Utils::get_hint_mode_for_gl_enum(in_vals_i32_ptr[n_val]);
+                break;
+            }
+
+            case OpenGL::GetSetArgumentType::LogicOpModeVKGL:
+            {
+                OpenGL::LogicOpMode* result_ptr = reinterpret_cast<OpenGL::LogicOpMode*>(out_result_ptr) + n_val;
+
+                *result_ptr = OpenGL::Utils::get_logic_op_mode_for_gl_enum(in_vals_i32_ptr[n_val]);
+                break;
+            }
+
+            case OpenGL::GetSetArgumentType::ProvokingVertexConventionVKGL:
+            {
+                OpenGL::ProvokingVertexConvention* result_ptr = reinterpret_cast<OpenGL::ProvokingVertexConvention*>(out_result_ptr) + n_val;
+
+                *result_ptr = OpenGL::Utils::get_provoking_vertex_convention_for_gl_enum(in_vals_i32_ptr[n_val]);
+                break;
+            }
+
+            case OpenGL::GetSetArgumentType::StencilFunctionVKGL:
+            {
+                OpenGL::StencilFunction* result_ptr = reinterpret_cast<OpenGL::StencilFunction*>(out_result_ptr) + n_val;
+
+                *result_ptr = OpenGL::Utils::get_stencil_function_for_gl_enum(in_vals_i32_ptr[n_val]);
+                break;
+            }
+
+            case OpenGL::GetSetArgumentType::StencilOperationVKGL:
+            {
+                OpenGL::StencilOperation* result_ptr = reinterpret_cast<OpenGL::StencilOperation*>(out_result_ptr) + n_val;
+
+                *result_ptr = OpenGL::Utils::get_stencil_operation_for_gl_enum(in_vals_i32_ptr[n_val]);
+                break;
+            }
+
+            case OpenGL::GetSetArgumentType::TextureMagFilterVKGL:
+            {
+                OpenGL::TextureMagFilter* result_ptr = reinterpret_cast<OpenGL::TextureMagFilter*>(out_result_ptr) + n_val;
+
+                *result_ptr = OpenGL::Utils::get_texture_mag_filter_for_gl_enum(in_vals_i32_ptr[n_val]);
+                break;
+            }
+
+            case OpenGL::GetSetArgumentType::TextureMinFilterVKGL:
+            {
+                OpenGL::TextureMinFilter* result_ptr = reinterpret_cast<OpenGL::TextureMinFilter*>(out_result_ptr) + n_val;
+
+                *result_ptr = OpenGL::Utils::get_texture_min_filter_for_gl_enum(in_vals_i32_ptr[n_val]);
+                break;
+            }
+
+            case OpenGL::GetSetArgumentType::TextureSwizzleVKGL:
+            {
+                OpenGL::TextureSwizzle* result_ptr = reinterpret_cast<OpenGL::TextureSwizzle*>(out_result_ptr) + n_val;
+
+                *result_ptr = OpenGL::Utils::get_texture_swizzle_for_gl_enum(in_vals_i32_ptr[n_val]);
+                break;
+            }
+
+            case OpenGL::GetSetArgumentType::TextureWrapModeVKGL:
+            {
+                OpenGL::TextureWrapMode* result_ptr = reinterpret_cast<OpenGL::TextureWrapMode*>(out_result_ptr) + n_val;
+
+                *result_ptr = OpenGL::Utils::get_texture_wrap_mode_for_gl_enum(in_vals_i32_ptr[n_val]);
+                break;
+            }
+
+            case OpenGL::GetSetArgumentType::TransformFeedbackBufferModeVKGL:
+            {
+                OpenGL::TransformFeedbackBufferMode* result_ptr = reinterpret_cast<OpenGL::TransformFeedbackBufferMode*>(out_result_ptr) + n_val;
+
+                *result_ptr = OpenGL::Utils::get_transform_feedback_buffer_mode_for_gl_enum(in_vals_i32_ptr[n_val]);
+                break;
+            }
+
             default:
             {
                 vkgl_assert_fail();
@@ -521,6 +633,71 @@ void OpenGL::Converters::convert(const OpenGL::GetSetArgumentType& in_src_type,
                                     in_n_vals,
                                     in_dst_type,
                                     out_result_ptr);
+        }
+
+        case OpenGL::GetSetArgumentType::TextureMagFilterVKGL:
+        {
+            const GLenum texture_mag_filter_gl = OpenGL::Utils::get_gl_enum_for_texture_mag_filter(*reinterpret_cast<const OpenGL::TextureMagFilter*>(in_vals_ptr) );
+
+            vkgl_assert(in_n_vals == 1);
+
+            return convert(OpenGL::GetSetArgumentType::Int,
+                         &texture_mag_filter_gl,
+                          1, /* in_n_vals */
+                          in_dst_type,
+                          out_result_ptr);
+        }
+
+        case OpenGL::GetSetArgumentType::TextureMinFilterVKGL:
+        {
+            const GLenum texture_min_filter_gl = OpenGL::Utils::get_gl_enum_for_texture_min_filter(*reinterpret_cast<const OpenGL::TextureMinFilter*>(in_vals_ptr) );
+
+            vkgl_assert(in_n_vals == 1);
+
+            return convert(OpenGL::GetSetArgumentType::Int,
+                         &texture_min_filter_gl,
+                          1, /* in_n_vals */
+                          in_dst_type,
+                          out_result_ptr);
+        }
+
+        case OpenGL::GetSetArgumentType::TextureSwizzleVKGL:
+        {
+            const GLenum texture_swizzle_gl = OpenGL::Utils::get_gl_enum_for_texture_swizzle(*reinterpret_cast<const OpenGL::TextureSwizzle*>(in_vals_ptr) );
+
+            vkgl_assert(in_n_vals == 1);
+
+            return convert(OpenGL::GetSetArgumentType::Int,
+                         &texture_swizzle_gl,
+                          1, /* in_n_vals */
+                          in_dst_type,
+                          out_result_ptr);
+        }
+
+        case OpenGL::GetSetArgumentType::TextureWrapModeVKGL:
+        {
+            const GLenum texture_wrap_mode_gl = OpenGL::Utils::get_gl_enum_for_texture_wrap_mode(*reinterpret_cast<const OpenGL::TextureWrapMode*>(in_vals_ptr) );
+
+            vkgl_assert(in_n_vals == 1);
+
+            return convert(OpenGL::GetSetArgumentType::Int,
+                         &texture_wrap_mode_gl,
+                          1, /* in_n_vals */
+                          in_dst_type,
+                          out_result_ptr);
+        }
+
+        case OpenGL::GetSetArgumentType::TransformFeedbackBufferModeVKGL:
+        {
+            const GLenum transform_feedback_buffer_mode_gl = OpenGL::Utils::get_gl_enum_for_transform_feedback_buffer_mode(*reinterpret_cast<const OpenGL::TransformFeedbackBufferMode*>(in_vals_ptr) );
+
+            vkgl_assert(in_n_vals == 1);
+
+            return convert(OpenGL::GetSetArgumentType::Int,
+                         &transform_feedback_buffer_mode_gl,
+                          1, /* in_n_vals */
+                          in_dst_type,
+                          out_result_ptr);
         }
 
         default:

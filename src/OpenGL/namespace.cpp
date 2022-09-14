@@ -9,17 +9,23 @@ OpenGL::Namespace::Namespace(const GLuint& in_start_id)
     :m_n_allocated_ids(0),
      m_start_id       (in_start_id)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* Stub */
 }
 
 OpenGL::Namespace::~Namespace()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* Stub */
 }
 
 void OpenGL::Namespace::allocate(const uint32_t& in_n_ids,
                                  GLuint*         out_ids_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     uint32_t n_allocated_ids = 0;
 
     /* Try to assign IDs from a pool of IDs which have already been distributed & returned. */
@@ -51,6 +57,8 @@ void OpenGL::Namespace::allocate(const uint32_t& in_n_ids,
 void OpenGL::Namespace::release(const uint32_t& in_n_ids,
                                 const GLuint*   in_ids_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     for (uint32_t n_id = 0;
                   n_id < in_n_ids;
                 ++n_id)

@@ -12,16 +12,22 @@
 OpenGL::VKFramebufferManager::VKFramebufferManager(IBackend* in_backend_ptr)
     :m_backend_ptr(in_backend_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(in_backend_ptr != nullptr);
 }
 
 OpenGL::VKFramebufferManager::~VKFramebufferManager()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* Stub for now */
 }
 
 OpenGL::VKFramebufferManagerUniquePtr OpenGL::VKFramebufferManager::create(IBackend* in_backend_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     OpenGL::VKFramebufferManagerUniquePtr result_ptr;
 
     result_ptr.reset(new VKFramebufferManager(in_backend_ptr) );
@@ -36,6 +42,8 @@ Anvil::Framebuffer* OpenGL::VKFramebufferManager::get_framebuffer(const std::vec
                                                                   const uint32_t&                       in_n_layers,
                                                                   Anvil::RenderPass*                    in_rp_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const auto          fb_hash    = get_framebuffer_hash(in_attachments_ptr,
                                                           in_width,
                                                           in_height,
@@ -130,6 +138,8 @@ uint64_t OpenGL::VKFramebufferManager::get_framebuffer_hash(const std::vector<An
                                                             const uint32_t&                       in_n_layers,
                                                             const Anvil::RenderPass*              in_rp_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     uint64_t hash = 0;
 
     hash |= static_cast<uint64_t>(in_width);

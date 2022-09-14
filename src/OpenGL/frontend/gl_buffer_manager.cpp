@@ -12,11 +12,15 @@ OpenGL::GLBufferManager::GLBufferManager()
     :GLObjectManager(1,    /* in_first_valid_nondefault_id */
                      true) /* in_expose_default_object     */
 {
+	FUN_ENTRY(DEBUG_DEPTH);
+	
     /*  Stub */
 }
 
 OpenGL::GLBufferManager::~GLBufferManager()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* Stub - everything is handled by the base class. */
 }
 
@@ -46,6 +50,8 @@ void OpenGL::GLBufferManager::copy_internal_data_object(const void* in_src_ptr,
 
 OpenGL::GLBufferManagerUniquePtr OpenGL::GLBufferManager::create()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     OpenGL::GLBufferManagerUniquePtr result_ptr;
 
     result_ptr.reset(new GLBufferManager() );
@@ -84,6 +90,8 @@ std::unique_ptr<void, std::function<void(void*)> > OpenGL::GLBufferManager::crea
 void* OpenGL::GLBufferManager::get_buffer_map_pointer(const GLuint&             in_id,
                                                       const OpenGL::TimeMarker* in_opt_time_marker_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto  buffer_ptr = get_buffer_ptr(in_id,
                                       in_opt_time_marker_ptr);
     void* result_ptr = nullptr;
@@ -114,6 +122,8 @@ OpenGL::GLBufferManager::Buffer* OpenGL::GLBufferManager::get_buffer_ptr(const G
 size_t OpenGL::GLBufferManager::get_buffer_size(const GLuint&             in_id,
                                                 const OpenGL::TimeMarker* in_opt_time_marker_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto   buffer_ptr = get_buffer_ptr(in_id,
                                        in_opt_time_marker_ptr);
     size_t result     = 0;
@@ -134,6 +144,8 @@ void OpenGL::GLBufferManager::get_buffer_property(const GLuint&                 
                                                   const uint32_t&                   in_n_args,
                                                   void*                             out_result_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
@@ -141,6 +153,8 @@ bool OpenGL::GLBufferManager::get_buffer_state_ptr(const GLuint&                
                                                    const OpenGL::TimeMarker*         in_opt_time_marker_ptr,
                                                    const OpenGL::BufferState**       out_state_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto buffer_ptr = get_buffer_ptr(in_id,
                                      in_opt_time_marker_ptr);
     bool result     = false;
@@ -158,6 +172,8 @@ bool OpenGL::GLBufferManager::get_buffer_state_ptr(const GLuint&                
 OpenGL::BufferUsage OpenGL::GLBufferManager::get_buffer_usage(const GLuint&             in_id,
                                                               const OpenGL::TimeMarker* in_opt_time_marker_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto                buffer_ptr = get_buffer_ptr(in_id,
                                                     in_opt_time_marker_ptr);
     OpenGL::BufferUsage result     = OpenGL::BufferUsage::Unknown;
@@ -176,6 +192,8 @@ bool OpenGL::GLBufferManager::get_buffer_used_buffer_targets(const GLuint&      
                                                              uint32_t*                    out_n_result_targets_ptr,
                                                              const OpenGL::BufferTarget** out_result_targets_ptr_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto buffer_ptr = get_buffer_ptr(in_id,
                                      in_opt_time_marker_ptr);
     bool result     = false;
@@ -198,6 +216,8 @@ bool OpenGL::GLBufferManager::get_buffer_used_buffer_targets(const GLuint&      
 void OpenGL::GLBufferManager::on_buffer_bound_to_buffer_target(const GLuint&               in_id,
                                                                const OpenGL::BufferTarget& in_target)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto buffer_ptr = get_buffer_ptr(in_id,
                                      nullptr); /* in_opt_time_marker_ptr */
     bool result     = false;
@@ -219,6 +239,8 @@ void OpenGL::GLBufferManager::on_buffer_bound_to_buffer_target(const GLuint&    
 bool OpenGL::GLBufferManager::set_buffer_store_size(const GLuint& in_id,
                                                     const size_t& in_size)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto buffer_ptr = get_buffer_ptr(in_id,
                                      nullptr); /* in_opt_time_marker_ptr */
     bool result     = false;
@@ -242,6 +264,8 @@ bool OpenGL::GLBufferManager::set_buffer_store_size(const GLuint& in_id,
 bool OpenGL::GLBufferManager::set_buffer_usage(const GLuint&              in_id,
                                                const OpenGL::BufferUsage& in_usage)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto buffer_ptr = get_buffer_ptr(in_id,
                                      nullptr); /* in_opt_time_marker_ptr */
     bool result     = false;

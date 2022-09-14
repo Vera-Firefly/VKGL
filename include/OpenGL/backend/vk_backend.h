@@ -12,6 +12,7 @@
 #include "OpenGL/backend/vk_format_manager.h"
 #include "OpenGL/backend/vk_frame_graph.h"
 #include "OpenGL/backend/vk_swapchain_manager.h"
+#include "OpenGL/backend/vk_image_manager.h"
 #include "OpenGL/types.h"
 
 namespace OpenGL
@@ -30,9 +31,10 @@ namespace OpenGL
         void set_frontend_callback(const IContextObjectManagers* in_callback_ptr);
 
         #if defined(_WIN32)
-            void set_target_window(HWND in_opt_window_handle);
+            void set_target_window(void* in_opt_window_handle);
         #else
-            #error OS-specific bit.
+            void set_target_window(void* in_opt_window_handle);
+            //#error OS-specific bit.
         #endif
 
     private:
@@ -170,6 +172,13 @@ namespace OpenGL
             vkgl_assert(m_swapchain_manager_ptr != nullptr);
 
             return m_swapchain_manager_ptr.get();
+        }
+        
+        VKImageManager* get_image_manager_ptr() const final
+        {
+            vkgl_assert(m_image_manager_ptr != nullptr);
+
+            return m_image_manager_ptr.get();
         }
 
         ThreadPool* get_thread_pool_ptr() const final
@@ -421,6 +430,13 @@ namespace OpenGL
                               const OpenGL::PixelFormat& in_format,
                               const OpenGL::PixelType&   in_type,
                               const void*                in_pixels) final;
+        
+        void generate_mipmap(const GLuint&              in_id) final;
+        
+        void update_uniform_data(const GLuint&              in_id,
+								const GLint&				in_location,
+								const GLsizei&				in_count,
+								const void*					in_data_ptr) final;
 
         void present() final;
 
@@ -431,6 +447,8 @@ namespace OpenGL
         bool init             ();
         bool init_anvil       ();
         bool init_capabilities();
+        
+        bool update_texture_reference_for_uniform_resources(const OpenGL::SPIRVBlobID& in_spirv_id);
 
         VkBool32 on_debug_callback_received(Anvil::DebugMessageSeverityFlags in_severity,
                                             const char*                      in_message_ptr) const;
@@ -451,6 +469,7 @@ namespace OpenGL
         OpenGL::VKSchedulerUniquePtr                                  m_scheduler_ptr;
         OpenGL::VKSPIRVManagerUniquePtr                               m_spirv_manager_ptr;
         OpenGL::VKSwapchainManagerUniquePtr                           m_swapchain_manager_ptr;
+        OpenGL::VKImageManagerUniquePtr                           m_image_manager_ptr;
         OpenGL::ThreadPoolUniquePtr                                   m_thread_pool_ptr;
         const VKGL::IWSIContext*                                      m_wsi_context_ptr;
 

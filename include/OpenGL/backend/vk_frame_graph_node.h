@@ -26,7 +26,7 @@ namespace OpenGL
         union
         {
             VKBufferReference*    buffer_reference_ptr;
-            // VKImageReference*  image_reference_ptr; - todo
+             VKImageReference*  image_reference_ptr;
         };
 
         NodeIOType type;
@@ -62,20 +62,46 @@ namespace OpenGL
 
         struct ImageProps
         {
-            Anvil::ImageSubresourceRange subresource_range;
+        	Anvil::ImageSubresourceRange subresource_range;
+        	
+            Anvil::AccessFlags        access;
+            Anvil::ImageAspectFlags   aspects_touched;    //< may be COLOR, COLOR | DS or DS. Indicates which aspects are going to be used by the IO.
+            uint32_t                  fs_output_location;
+            Anvil::PipelineStageFlags pipeline_stages;
+
+            //< for inputs:  layout the image must be put into prior node execution;
+            //< for outputs: layout the image is in when node finishes executing.
+            //<
+            //< NOTE: Layouts must match for inputs & outputs referring to the same underlying physical image subresource! This restriction
+            //<       may be lifted in the future if necessary.
+            Anvil::ImageLayout        image_layout;
 
             ImageProps()
             {
-                /* Stub */
+                access             = Anvil::AccessFlagBits::NONE;
+                aspects_touched    = Anvil::ImageAspectFlagBits::NONE;
+                image_layout 		= Anvil::ImageLayout::UNKNOWN;
+                fs_output_location = UINT32_MAX;
+                pipeline_stages    = Anvil::PipelineStageFlagBits::NONE;
             }
 
-            ImageProps(const Anvil::ImageSubresourceRange& in_subresource_range)
-                :subresource_range(subresource_range)
+            ImageProps(const Anvil::ImageSubresourceRange&	in_subresource_range,
+                        const Anvil::ImageAspectFlags&   		in_aspects_touched,
+                        const Anvil::ImageLayout&        		in_image_layout,
+                        const Anvil::PipelineStageFlags& 		in_pipeline_stages,
+                        const Anvil::AccessFlags&        		in_access,
+                        const uint32_t&                  		in_fs_output_location)
+                :subresource_range(in_subresource_range),
+                access            (in_access),
+                 aspects_touched   (in_aspects_touched),
+                 image_layout		(in_image_layout),
+                 fs_output_location(in_fs_output_location),
+                 pipeline_stages   (in_pipeline_stages)
             {
                 /* Stub */
             }
         } image_props;
-
+        
         struct SwapchainImageProps
         {
             Anvil::AccessFlags        access;
@@ -143,20 +169,27 @@ namespace OpenGL
             opt_post_sync_semaphore_ptr = nullptr;
         }
 
-#if 0
-        TODO
-
-        explicit NodeIO(VKImageReference*                   in_vk_image_reference_ptr,
-                        const Anvil::ImageSubresourceRange& in_subresource_range)
-            :image_props        (in_subresource_range),
+        explicit NodeIO(VKImageReference*            in_vk_image_reference_ptr,
+                        const Anvil::ImageSubresourceRange& in_subresource_range,
+                        const Anvil::ImageAspectFlags&   in_aspect,
+                        const Anvil::ImageLayout&        in_image_layout,
+                        const Anvil::PipelineStageFlags& in_pipeline_stages,
+                        const Anvil::AccessFlags&        in_access,
+                        const uint32_t&                  in_fs_output_location)
+            :image_props		(in_subresource_range,
+        						   in_aspect,
+                                   in_image_layout,
+                                   in_pipeline_stages,
+                                   in_access,
+                                   in_fs_output_location),
              image_reference_ptr(in_vk_image_reference_ptr),
-             type               (NodeIOType::Image)
+             type                 (NodeIOType::Image)
         {
             opt_post_sync_event_ptr     = nullptr;
             opt_post_sync_fence_ptr     = nullptr;
             opt_post_sync_semaphore_ptr = nullptr;
         }
-#endif
+        
         explicit NodeIO(VKSwapchainReference*            in_alwaysnull_vk_swapchain_reference_ptr,
                         const Anvil::ImageAspectFlags&   in_aspect,
                         const Anvil::ImageLayout&        in_color_image_layout,
@@ -187,6 +220,7 @@ namespace OpenGL
     {
         Acquire_Swapchain_Image,
         Buffer_Data,
+        Buffer_Sub_Data,
         Clear,
         Draw,
         Present_Swapchain_Image,

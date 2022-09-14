@@ -14,6 +14,8 @@ OpenGL::GLProgramManager::Program::Program(OpenGL::GLShaderManager*             
                                            const OpenGL::GLProgramManager::Program& in_program,
                                            const bool&                              in_should_convert_proxy_refs_to_nonproxy)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* The two members need extra handling .. */
 
     for (auto& current_attached_shader_reference_ptr : in_program.attached_shaders)
@@ -111,6 +113,8 @@ OpenGL::GLProgramManager::Program& OpenGL::GLProgramManager::Program::operator=(
 
 const OpenGL::PostLinkData* OpenGL::GLProgramManager::Program::get_post_link_data(IBackendGLCallbacks* in_backend_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     if (spirv_blob_id      != UINT32_MAX &&
         post_link_data_ptr == nullptr)
     {
@@ -134,17 +138,23 @@ OpenGL::GLProgramManager::GLProgramManager(OpenGL::IContextObjectManagers* in_fr
      m_backend_ptr                 (in_backend_ptr),
      m_frontend_object_managers_ptr(in_frontend_object_managers_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /*  Stub */
 }
 
 OpenGL::GLProgramManager::~GLProgramManager()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* Stub - everything is handled by the base class. */
 }
 
 bool OpenGL::GLProgramManager::attach_shader(const GLuint&              in_program,
                                              GLShaderReferenceUniquePtr in_shader_reference_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto program_ptr = get_program_ptr(in_program,
                                        nullptr); /* in_opt_time_marker_ptr */
     bool result      = false;
@@ -168,6 +178,8 @@ bool OpenGL::GLProgramManager::cache_attribute_location_binding(const GLuint&   
                                                                 const char*     in_name,
                                                                 const uint32_t& in_index)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto program_ptr = get_program_ptr(in_program,
                                        nullptr); /* in_opt_time_marker_ptr */
     bool result      = false;
@@ -196,6 +208,8 @@ bool OpenGL::GLProgramManager::cache_frag_data_location(const GLuint&   in_progr
                                                         const char*     in_name,
                                                         const uint32_t& in_fragment_color_output)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto program_ptr = get_program_ptr(in_program,
                                        nullptr); /* in_opt_time_marker_ptr */
     bool result      = false;
@@ -245,6 +259,8 @@ void OpenGL::GLProgramManager::copy_internal_data_object(const void* in_src_ptr,
 OpenGL::GLProgramManagerUniquePtr OpenGL::GLProgramManager::create(OpenGL::IContextObjectManagers* in_frontend_object_managers_ptr,
                                                                    IBackendGLCallbacks*            in_backend_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     OpenGL::GLProgramManagerUniquePtr result_ptr;
 
     result_ptr.reset(new GLProgramManager(in_frontend_object_managers_ptr,
@@ -284,6 +300,8 @@ std::unique_ptr<void, std::function<void(void*)> > OpenGL::GLProgramManager::cre
 bool OpenGL::GLProgramManager::detach_shader(const GLuint& in_program,
                                              const GLuint& in_shader_id)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto                                          program_ptr      = get_program_ptr(in_program,
                                                                                      nullptr); /* in_opt_time_marker_ptr */
     bool                                          result           = false;
@@ -325,10 +343,12 @@ bool OpenGL::GLProgramManager::get_active_attribute(const GLuint&             in
                                                     uint32_t*                 out_opt_size_ptr,
                                                     VariableType*             out_opt_variable_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const ActiveAttributeProperties* attribute_props_ptr = nullptr;
     const PostLinkData*              post_link_data_ptr  = nullptr;
-    auto                             program_ptr         = get_program_ptr(in_program,
-                                                                           in_opt_time_marker_ptr);
+    auto                             program_ptr         = const_cast<OpenGL::GLProgramManager*>(this)->get_program_ptr(in_program,
+                                                                           														in_opt_time_marker_ptr);
     bool                             result              = false;
 
     if (program_ptr == nullptr)
@@ -379,10 +399,12 @@ bool OpenGL::GLProgramManager::get_active_attribute_location(const GLuint&      
                                                              const char*               in_name,
                                                              GLint*                    out_result_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     decltype(PostLinkData::active_attribute_name_to_location_map)::const_iterator attribute_iterator;
     const PostLinkData*                                                           post_link_data_ptr = nullptr;
-    auto                                                                          program_ptr        = get_program_ptr(in_program,
-                                                                                                                       in_opt_time_marker_ptr);
+    auto                                                                          program_ptr        = const_cast<OpenGL::GLProgramManager*>(this)->get_program_ptr(in_program,
+                                                                                                                       														in_opt_time_marker_ptr);
     bool                                                                          result             = false;
 
     if (program_ptr == nullptr)
@@ -422,9 +444,11 @@ bool OpenGL::GLProgramManager::get_active_uniform(const GLuint&             in_p
                                                   uint32_t*                 out_opt_size_ptr,
                                                   VariableType*             out_opt_variable_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const PostLinkData*            post_link_data_ptr  = nullptr;
-    auto                           program_ptr         = get_program_ptr(in_program,
-                                                                         in_opt_time_marker_ptr);
+    auto                           program_ptr         = const_cast<OpenGL::GLProgramManager*>(this)->get_program_ptr(in_program,
+                                                                         													in_opt_time_marker_ptr);
     bool                           result              = false;
     const ActiveUniformProperties* uniform_props_ptr   = nullptr;
 
@@ -476,9 +500,11 @@ bool OpenGL::GLProgramManager::get_active_uniform_block_name(const GLuint&      
                                                              const GLuint&             in_index,
                                                              const char**              out_opt_name_ptr_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const PostLinkData* post_link_data_ptr = nullptr;
-    auto                program_ptr        = get_program_ptr(in_program,
-                                                             in_opt_time_marker_ptr);
+    auto                program_ptr        = const_cast<OpenGL::GLProgramManager*>(this)->get_program_ptr(in_program,
+                                                             														in_opt_time_marker_ptr);
     bool                result             = false;
 
     if (program_ptr == nullptr)
@@ -519,9 +545,11 @@ bool OpenGL::GLProgramManager::get_active_uniform_block_property(const GLuint&  
                                                                  const OpenGL::GetSetArgumentType&   in_params_type,
                                                                  void*                               out_params_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const PostLinkData*       post_link_data_ptr = nullptr;
-    auto                      program_ptr        = get_program_ptr(in_program,
-                                                                   in_opt_time_marker_ptr);
+    auto                      program_ptr        = const_cast<OpenGL::GLProgramManager*>(this)->get_program_ptr(in_program,
+                                                                   														in_opt_time_marker_ptr);
     bool                      result             = false;
     const void*               src_data_ptr       = nullptr;
     auto                      src_data_type      = OpenGL::GetSetArgumentType::Unknown;
@@ -624,9 +652,11 @@ bool OpenGL::GLProgramManager::get_active_uniform_by_name(const GLuint&         
                                                           const char*               in_name_ptr,
                                                           GLint*                    out_opt_location_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const PostLinkData*                                                post_link_data_ptr = nullptr;
-    auto                                                               program_ptr        = get_program_ptr(in_program,
-                                                                                                            in_opt_time_marker_ptr);
+    auto                                                               program_ptr        = const_cast<OpenGL::GLProgramManager*>(this)->get_program_ptr(in_program,
+                                                                                                            													in_opt_time_marker_ptr);
     bool                                                               result             = false;
     decltype(PostLinkData::active_uniform_by_name_map)::const_iterator uniform_iterator;
 
@@ -669,9 +699,11 @@ bool OpenGL::GLProgramManager::get_active_uniform_indices(const GLuint&         
                                                           const char* const*        in_uniform_names_ptr_ptr,
                                                           GLuint*                   out_uniform_indices_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const PostLinkData*                                                post_link_data_ptr = nullptr;
-    auto                                                               program_ptr        = get_program_ptr(in_program,
-                                                                                                            in_opt_time_marker_ptr);
+    auto                                                               program_ptr        = const_cast<OpenGL::GLProgramManager*>(this)->get_program_ptr(in_program,
+                                                                                                            													in_opt_time_marker_ptr);
     bool                                                               result             = false;
     decltype(PostLinkData::active_uniform_by_name_map)::const_iterator uniform_iterator;
 
@@ -717,9 +749,11 @@ bool OpenGL::GLProgramManager::get_active_uniforms_property(const GLuint&       
                                                             const OpenGL::UniformProperty& in_pname,
                                                             GLint*                         out_params_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const PostLinkData*        post_link_data_ptr = nullptr;
-    auto                       program_ptr        = get_program_ptr(in_program,
-                                                                    in_opt_time_marker_ptr);
+    auto                       program_ptr        = const_cast<OpenGL::GLProgramManager*>(this)->get_program_ptr(in_program,
+                                                                    													in_opt_time_marker_ptr);
     bool                       result             = false;
     const void*                src_data_ptr       = nullptr;
     OpenGL::GetSetArgumentType src_data_type      = OpenGL::GetSetArgumentType::Unknown;
@@ -804,10 +838,12 @@ bool OpenGL::GLProgramManager::get_frag_data_location(const GLuint&             
                                                       const char*               in_name_ptr,
                                                       GLint*                    out_result_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     decltype(PostLinkData::frag_data_locations)::const_iterator iterator;
     const PostLinkData*                                         post_link_data_ptr = nullptr;
-    auto                                                        program_ptr        = get_program_ptr(in_program,
-                                                                                                     in_opt_time_marker_ptr);
+    auto                                                        program_ptr        = const_cast<OpenGL::GLProgramManager*>(this)->get_program_ptr(in_program,
+                                                                                                     													in_opt_time_marker_ptr);
     bool                                                        result             = false;
 
     if (program_ptr == nullptr)
@@ -843,9 +879,11 @@ bool OpenGL::GLProgramManager::get_program_info_log(const GLuint&             in
                                                     const OpenGL::TimeMarker* in_opt_time_marker_ptr,
                                                     const char**              out_result_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const PostLinkData* post_link_data_ptr = nullptr;
-    auto                program_ptr        = get_program_ptr(in_program,
-                                                             in_opt_time_marker_ptr);
+    auto                program_ptr        = const_cast<OpenGL::GLProgramManager*>(this)->get_program_ptr(in_program,
+                                                             													in_opt_time_marker_ptr);
     bool                result             = false;
 
     if (program_ptr == nullptr)
@@ -871,8 +909,10 @@ bool OpenGL::GLProgramManager::get_program_link_time_properties(const GLuint&   
                                                                 const FragDataLocationMap**                    out_frag_data_locations_ptr_ptr,
                                                                 const std::unordered_map<uint32_t, uint32_t>** out_ub_index_to_ub_binding_map_ptr_ptr) const
 {
-    auto program_ptr = get_program_ptr(in_program,
-                                       in_opt_time_marker_ptr);
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+    auto program_ptr = const_cast<OpenGL::GLProgramManager*>(this)->get_program_ptr(in_program,
+                                       														in_opt_time_marker_ptr);
     bool result      = false;
 
     if (program_ptr == nullptr)
@@ -898,9 +938,11 @@ bool OpenGL::GLProgramManager::get_program_property(const GLuint&               
                                                     const uint32_t&                   in_n_params_components,
                                                     void*                             out_params_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const PostLinkData*        post_link_data_ptr = nullptr;
-    auto                       program_ptr        = get_program_ptr(in_program,
-                                                                    in_opt_time_marker_ptr);
+    auto                       program_ptr        = const_cast<OpenGL::GLProgramManager*>(this)->get_program_ptr(in_program,
+                                                                    													in_opt_time_marker_ptr);
     bool                       result             = false;
     const void*                src_data_ptr       = nullptr;
     OpenGL::GetSetArgumentType src_data_type      = OpenGL::GetSetArgumentType::Unknown;
@@ -1058,6 +1100,12 @@ bool OpenGL::GLProgramManager::get_program_property(const GLuint&               
         }
     }
 
+    OpenGL::Converters::convert(src_data_type,
+                                src_data_ptr,
+                                1, /* in_n_vals */
+                                in_params_type,
+                                out_params_ptr);
+
     result = true;
 end:
     return result;
@@ -1067,7 +1115,7 @@ const OpenGL::GLProgramManager::Program* OpenGL::GLProgramManager::get_program_p
                                                                                    const OpenGL::TimeMarker* in_opt_time_marker_ptr) const
 {
     return reinterpret_cast<const OpenGL::GLProgramManager::Program*>(get_internal_object_props_ptr(in_id,
-                                                                                                    in_opt_time_marker_ptr));
+                                                                                                    in_opt_time_marker_ptr) );
 }
 
 OpenGL::GLProgramManager::Program* OpenGL::GLProgramManager::get_program_ptr(const GLuint&             in_id,
@@ -1082,10 +1130,12 @@ bool OpenGL::GLProgramManager::get_uniform_block_index(const GLuint&            
                                                        const char*               in_uniform_block_name,
                                                        uint32_t*                 out_result_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     decltype(PostLinkData::active_uniform_block_by_name_map)::const_iterator iterator;
     const PostLinkData*                                                      post_link_data_ptr = nullptr;
-    auto                                                                     program_ptr        = get_program_ptr(in_program,
-                                                                                                                  in_opt_time_marker_ptr);
+    auto                                                                     program_ptr        = const_cast<OpenGL::GLProgramManager*>(this)->get_program_ptr(in_program,
+                                                                                                                  														in_opt_time_marker_ptr);
     bool                                                                     result             = false;
 
     if (program_ptr == nullptr)
@@ -1121,8 +1171,10 @@ end:
 const std::vector<OpenGL::GLShaderReferenceUniquePtr>* OpenGL::GLProgramManager::get_attached_shaders(const GLuint&             in_program,
                                                                                                       const OpenGL::TimeMarker* in_opt_time_marker_ptr) const
 {
-    auto                                                   program_ptr = get_program_ptr(in_program,
-                                                                                       in_opt_time_marker_ptr);
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+    auto                                                   program_ptr = const_cast<OpenGL::GLProgramManager*>(this)->get_program_ptr(in_program,
+                                                                                       														in_opt_time_marker_ptr);
     const std::vector<OpenGL::GLShaderReferenceUniquePtr>* result_ptr  = nullptr;
 
     if (program_ptr == nullptr)
@@ -1143,10 +1195,12 @@ bool OpenGL::GLProgramManager::map_global_uniform_index_to_uniform_and_ub_indice
                                                                                   GLuint*                   out_uniform_block_index_ptr,
                                                                                   GLuint*                   out_uniform_index_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     decltype(PostLinkData::index_to_ub_and_uniform_index_pair)::const_iterator iterator;
     const PostLinkData*                                                        post_link_data_ptr = nullptr;
-    auto                                                                       program_ptr        = get_program_ptr(in_program,
-                                                                                                                    in_opt_time_marker_ptr);
+    auto                                                                       program_ptr        = const_cast<OpenGL::GLProgramManager*>(this)->get_program_ptr(in_program,
+                                                                                                                    													in_opt_time_marker_ptr);
     bool                                                                       result             = false;
 
     if (program_ptr == nullptr)
@@ -1184,6 +1238,8 @@ void OpenGL::GLProgramManager::set_program_backend_spirv_blob_id(const GLuint&  
                                                                  const OpenGL::TimeMarker*  in_opt_time_marker_ptr,
                                                                  const OpenGL::SPIRVBlobID& in_spirv_blob_id)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto program_ptr = get_program_ptr(in_program,
                                        in_opt_time_marker_ptr);
 
@@ -1206,6 +1262,8 @@ void OpenGL::GLProgramManager::get_program_post_link_data_ptr(const GLuint&     
                                                               const OpenGL::TimeMarker* in_opt_time_marker_ptr,
                                                               const PostLinkData**      out_post_link_data_ptr_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto program_ptr = const_cast<OpenGL::GLProgramManager*>(this)->get_program_ptr(in_program,
                                                                                     in_opt_time_marker_ptr);
 
@@ -1227,6 +1285,8 @@ void OpenGL::GLProgramManager::set_program_post_link_data_ptr(const GLuint&     
                                                               const OpenGL::TimeMarker*     in_opt_time_marker_ptr,
                                                               OpenGL::PostLinkDataUniquePtr in_post_link_data_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto program_ptr = get_program_ptr(in_program,
                                        in_opt_time_marker_ptr);
 
@@ -1251,6 +1311,8 @@ void OpenGL::GLProgramManager::set_uniform_block_binding(const GLuint& in_progra
                                                          const GLuint& in_uniform_block_index,
                                                          const GLuint& in_uniform_block_binding)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto program_ptr = get_program_ptr(in_program,
                                        nullptr); /* in_opt_time_marker_ptr */
 

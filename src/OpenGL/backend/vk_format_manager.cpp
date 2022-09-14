@@ -12,15 +12,21 @@
 OpenGL::VKFormatManager::VKFormatManager(Anvil::SGPUDevice* in_device_ptr)
     :m_device_ptr(in_device_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_device_ptr != nullptr);
 }
 
 OpenGL::VKFormatManager::~VKFormatManager()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
 }
 
 OpenGL::VKFormatManagerUniquePtr OpenGL::VKFormatManager::create(Anvil::SGPUDevice* in_device_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     OpenGL::VKFormatManagerUniquePtr result_ptr;
 
     result_ptr.reset(new OpenGL::VKFormatManager(in_device_ptr) );
@@ -31,6 +37,8 @@ OpenGL::VKFormatManagerUniquePtr OpenGL::VKFormatManager::create(Anvil::SGPUDevi
 
 Anvil::FormatType OpenGL::VKFormatManager::get_anvil_format_type_for_gl_format_data_type(const OpenGL::FormatDataType& in_data_type) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     Anvil::FormatType result = Anvil::FormatType::UNKNOWN;
 
     switch (in_data_type)
@@ -53,15 +61,22 @@ Anvil::FormatType OpenGL::VKFormatManager::get_anvil_format_type_for_gl_format_d
     return result;
 }
 
-Anvil::Format OpenGL::VKFormatManager::get_best_fit_anvil_format(const OpenGL::InternalFormat&    in_internal_format,
+Anvil::Format OpenGL::VKFormatManager::get_best_fit_anvil_format(const OpenGL::InternalFormat&    in_internal_format_const,
                                                                 const Anvil::FormatFeatureFlags& in_format_features)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     std::lock_guard<std::mutex> lock                 (m_gl_to_vk_format_map_mutex);
     Anvil::Format               result               (Anvil::Format::UNKNOWN);
     uint32_t                    result_bits_per_texel(0);
+    OpenGL::InternalFormat		in_internal_format(in_internal_format_const);
 
     /* Sanity check: this func must not be called for non-sized / compressed internal formats (TODO: is this true for the latter?) */
-    vkgl_assert(OpenGL::GLFormats::is_sized_internal_format(in_internal_format) );
+    //vkgl_assert(OpenGL::GLFormats::is_sized_internal_format(in_internal_format) );
+    if (OpenGL::GLFormats::is_base_internal_format(in_internal_format) )
+    {
+    	in_internal_format = OpenGL::GLFormats::choose_sized_internal_format_for_base_internal_format(in_internal_format);
+    }
 
     {
         /* Check if the query has not been issued in the past first. */
@@ -216,12 +231,12 @@ Anvil::Format OpenGL::VKFormatManager::get_best_fit_anvil_format(const OpenGL::I
 
         static const Anvil::Format ds_formats[] =
         {
-            Anvil::Format::D16_UNORM,
-            Anvil::Format::X8_D24_UNORM_PACK32,
-            Anvil::Format::D32_SFLOAT,
             Anvil::Format::S8_UINT,
+            Anvil::Format::D16_UNORM,
             Anvil::Format::D16_UNORM_S8_UINT,
             Anvil::Format::D24_UNORM_S8_UINT,
+            Anvil::Format::X8_D24_UNORM_PACK32,
+            Anvil::Format::D32_SFLOAT,
             Anvil::Format::D32_SFLOAT_S8_UINT,
         };
 
@@ -242,10 +257,10 @@ Anvil::Format OpenGL::VKFormatManager::get_best_fit_anvil_format(const OpenGL::I
             internal_format_size_ds[1] == 0)
         {
             /* Internal format is a color format */
-            vkgl_assert(internal_format_size_rgba[0] == 0 &&
-                        internal_format_size_rgba[1] == 0 &&
-                        internal_format_size_rgba[2] == 0 &&
-                        internal_format_size_rgba[3] == 0);
+            vkgl_assert(internal_format_size_rgba[0] != 0 ||
+                        internal_format_size_rgba[1] != 0 ||
+                        internal_format_size_rgba[2] != 0 ||
+                        internal_format_size_rgba[3] != 0);
 
             input_formats   = color_formats;
             n_input_formats = sizeof(color_formats) / sizeof(color_formats[0]);
@@ -265,7 +280,6 @@ Anvil::Format OpenGL::VKFormatManager::get_best_fit_anvil_format(const OpenGL::I
                     ++n_input_format)
         {
             const auto current_format              = input_formats[n_input_format];
-            const auto current_format_props        = m_device_ptr->get_physical_device_format_properties(current_format);
             uint32_t   current_format_rgba_size[4] = {0, 0, 0, 0};
             const auto current_format_type         = Anvil::Formats::get_format_type(current_format);
 
@@ -276,12 +290,24 @@ Anvil::Format OpenGL::VKFormatManager::get_best_fit_anvil_format(const OpenGL::I
                                                                current_format_rgba_size + 2,
                                                                current_format_rgba_size + 3);
 
-            if (internal_format_size_rgba[0] > current_format_rgba_size[0] ||
-                internal_format_size_rgba[1] > current_format_rgba_size[1] ||
-                internal_format_size_rgba[2] > current_format_rgba_size[2] ||
-                internal_format_size_rgba[3] > current_format_rgba_size[3])
+			if (internal_format_size_ds[0] == 0 &&
+                internal_format_size_ds[1] == 0)
             {
-                continue;
+                if (internal_format_size_rgba[0] > current_format_rgba_size[0] ||
+                    internal_format_size_rgba[1] > current_format_rgba_size[1] ||
+                    internal_format_size_rgba[2] > current_format_rgba_size[2] ||
+                    internal_format_size_rgba[3] > current_format_rgba_size[3])
+                {
+                    continue;
+                }
+			}
+			else
+			{
+                if (internal_format_size_ds[0] > current_format_rgba_size[0] ||
+                    internal_format_size_ds[1] > current_format_rgba_size[1])
+                {
+                    continue;
+                }
             }
 
             /* Make sure data types match. */
@@ -294,6 +320,47 @@ Anvil::Format OpenGL::VKFormatManager::get_best_fit_anvil_format(const OpenGL::I
             candidate_formats.push_back(current_format);
         }
 
+        if (candidate_formats.size() == 0)
+        {
+            for (uint32_t n_input_format = 0;
+                          n_input_format < n_input_formats;
+                        ++n_input_format)
+            {
+                const auto current_format              = input_formats[n_input_format];
+                uint32_t   current_format_rgba_size[4] = {0, 0, 0, 0};
+    
+                /* Make sure per-component number of bits is sufficient */
+                Anvil::Formats::get_format_n_component_bits_nonyuv(current_format,
+                                                                   current_format_rgba_size + 0,
+                                                                   current_format_rgba_size + 1,
+                                                                   current_format_rgba_size + 2,
+                                                                   current_format_rgba_size + 3);
+    
+    			if (internal_format_size_ds[0] == 0 &&
+                    internal_format_size_ds[1] == 0)
+                {
+                    if (internal_format_size_rgba[0] > current_format_rgba_size[0] ||
+                        internal_format_size_rgba[1] > current_format_rgba_size[1] ||
+                        internal_format_size_rgba[2] > current_format_rgba_size[2] ||
+                        internal_format_size_rgba[3] > current_format_rgba_size[3])
+                    {
+                        continue;
+                    }
+    			}
+    			else
+    			{
+                    if (internal_format_size_ds[0] > current_format_rgba_size[0] ||
+                        internal_format_size_ds[1] > current_format_rgba_size[1])
+                    {
+                        continue;
+                    }
+                }
+    
+                /* That's a compatible candidate. */
+                candidate_formats.push_back(current_format);
+            }
+        }
+
         /* 2. Get rid of formats which do not support the requested usage flags */
         for (uint32_t n_candidate_format = 0;
                       n_candidate_format < candidate_formats.size(); )
@@ -301,7 +368,7 @@ Anvil::Format OpenGL::VKFormatManager::get_best_fit_anvil_format(const OpenGL::I
             const auto current_format       = candidate_formats.at(n_candidate_format);
             const auto current_format_props = m_device_ptr->get_physical_device_format_properties(current_format);
 
-            if ((current_format_props.optimal_tiling_capabilities & in_format_features) != in_format_features)
+            if (((current_format_props.linear_tiling_capabilities | current_format_props.optimal_tiling_capabilities) & in_format_features) != in_format_features)
             {
                 /* The device does not provide sufficient caps for current format. Move on */
                 candidate_formats.erase(candidate_formats.begin() + n_candidate_format);
@@ -340,7 +407,7 @@ Anvil::Format OpenGL::VKFormatManager::get_best_fit_anvil_format(const OpenGL::I
             }
 
             if (result == Anvil::Format::UNKNOWN                                ||
-                result_bits_per_texel < current_candidate_format_size_per_texel)
+                result_bits_per_texel > current_candidate_format_size_per_texel)
             {
                 result                = current_candidate_format;
                 result_bits_per_texel = current_candidate_format_size_per_texel;

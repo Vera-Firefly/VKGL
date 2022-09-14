@@ -2,7 +2,7 @@
  *
  * This code is licensed under MIT license (see LICENSE.txt for details)
  */
-#include "Common\fence.h"
+#include "Common/fence.h"
 
 
 VKGL::Fence::Fence()

@@ -3,6 +3,8 @@
  * This code is licensed under MIT license (see LICENSE.txt for details)
  */
 #include "Common/macros.h"
+#include "Anvil/include/misc/buffer_create_info.h"
+#include "Anvil/include/wrappers/buffer.h"
 #include "OpenGL/frontend/gl_buffer_manager.h"
 #include "OpenGL/frontend/gl_framebuffer_manager.h"
 #include "OpenGL/frontend/gl_object_manager.h"
@@ -10,6 +12,7 @@
 #include "OpenGL/frontend/gl_renderbuffer_manager.h"
 #include "OpenGL/frontend/gl_reference.h"
 #include "OpenGL/frontend/gl_vao_manager.h"
+#include "OpenGL/frontend/gl_compatibility_manager.h"
 #include "OpenGL/types.h"
 
 static const OpenGL::BufferTarget g_indexed_buffer_targets[] =
@@ -30,6 +33,254 @@ static const OpenGL::BufferTarget g_nonindexed_buffer_targets[] =
     OpenGL::BufferTarget::Transform_Feedback_Buffer,
     OpenGL::BufferTarget::Uniform_Buffer,
 };
+
+OpenGL::FpeState::FpeState(uint32_t in_max_lights,
+							uint32_t in_max_tex_coords)
+{
+	if (in_max_lights != 0 &&
+		in_max_tex_coords != 0)
+	{
+    	{
+            //
+            // Matrix state. p. 31, 32, 37, 39, 40.
+            //
+                matrices.gl_ModelViewMatrix = glm::mat4();
+                matrices.gl_ProjectionMatrix = glm::mat4();
+                matrices.gl_ModelViewProjectionMatrix = glm::mat4();
+    
+                //
+                // Normal scaling p. 39.
+                //
+                matrices.gl_NormalScale = 0.0f;
+    
+                //
+                // Derived matrix state that provides inverse and transposed versions
+                // of the matrices above.
+                //
+                matrices.gl_NormalMatrix = glm::mat3();
+    
+                matrices.gl_ModelViewMatrixInverse = glm::mat4();
+                matrices.gl_ProjectionMatrixInverse = glm::mat4();
+                matrices.gl_ModelViewProjectionMatrixInverse = glm::mat4();
+    
+                matrices.gl_ModelViewMatrixTranspose = glm::mat4();
+                matrices.gl_ProjectionMatrixTranspose = glm::mat4();
+                matrices.gl_ModelViewProjectionMatrixTranspose = glm::mat4();
+    
+                matrices.gl_ModelViewMatrixInverseTranspose = glm::mat4();
+                matrices.gl_ProjectionMatrixInverseTranspose = glm::mat4();
+                matrices.gl_ModelViewProjectionMatrixInverseTranspose = glm::mat4();
+    
+                //
+                // Matrix state. p. 31, 32, 37, 39, 40.
+                //
+                              matrices.gl_TextureMatrix.resize(in_max_tex_coords, glm::mat4() );
+    
+                //
+                // Derived matrix state that provides inverse and transposed versions
+                // of the matrices above.
+                //
+                              matrices.gl_TextureMatrixInverse.resize(in_max_tex_coords, glm::mat4() );
+    
+                              matrices.gl_TextureMatrixTranspose.resize(in_max_tex_coords, glm::mat4() );
+    
+                              matrices.gl_TextureMatrixInverseTranspose.resize(in_max_tex_coords, glm::mat4() );
+    	}
+    	
+    	{
+    		fog.mode 	= GL_EXP;
+    		fog.coord_src 	= GL_FRAGMENT_DEPTH;
+    		fog.index 	= 0.0f;
+    		fog.color 	= glm::vec4();
+    		fog.density = 0.0f;
+    		fog.start 	= 0.0f;
+    		fog.end 	= 1.0f;
+    		fog.scale 	= 1.0f / (fog.end - fog.start);
+    	}
+    	
+    	{
+    		{
+        		light.light_model_state.color_control = GL_SINGLE_COLOR;
+        		light.light_model_state.local_viewer = GL_FALSE;
+        		light.light_model_state.two_side 	= GL_FALSE;
+        		
+        		light.front_material_state.mode = GL_AMBIENT_AND_DIFFUSE;
+        		light.back_material_state.mode = GL_AMBIENT_AND_DIFFUSE;
+    		}
+    		
+    		{
+        		light.gl_FrontMaterial.ambient = glm::vec4(0.2f, 0.2f, 0.2f, 1.0f);
+        		light.gl_FrontMaterial.diffuse = glm::vec4(0.8f, 0.8f, 0.8f, 1.0f);
+        		light.gl_FrontMaterial.specular = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+        		light.gl_FrontMaterial.emission = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+        		light.gl_FrontMaterial.shininess = 0.0f;
+        		
+        		light.gl_BackMaterial.ambient = glm::vec4(0.2f, 0.2f, 0.2f, 1.0f);
+        		light.gl_BackMaterial.diffuse = glm::vec4(0.8f, 0.8f, 0.8f, 1.0f);
+        		light.gl_BackMaterial.specular = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+        		light.gl_BackMaterial.emission = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+        		light.gl_BackMaterial.shininess = 0.0f;
+    		}
+    		
+    		{
+        		light.gl_LightModel.ambient = glm::vec4(0.2f, 0.2f, 0.2f, 1.0f);
+    		}
+    		
+    		{
+        		light.gl_LightSource.resize		(in_max_lights);
+        		
+        		for (int i = 0;
+        				i < light.gl_LightSource.size();
+        				i++)
+        		{
+        			light.gl_LightSource.at(i).ambient 				= glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+        			light.gl_LightSource.at(i).diffuse 				= glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+        			light.gl_LightSource.at(i).specular 			= glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+        			light.gl_LightSource.at(i).position 			= glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
+        			light.gl_LightSource.at(i).spotDirection 		= glm::vec3(0.0f, 0.0f, -1.0f);
+        			light.gl_LightSource.at(i).spotExponent 		= 0.0f;
+        			light.gl_LightSource.at(i).spotCutoff 			= 180.0f;
+        			light.gl_LightSource.at(i).constantAttenuation = 1.0f;
+        			light.gl_LightSource.at(i).linearAttenuation 	= 0.0f;
+        			light.gl_LightSource.at(i).quadraticAttenuation = 0.0f;
+        		}
+        		light.gl_LightSource.at(0).diffuse = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+        		light.gl_LightSource.at(0).specular = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    		}
+    		
+    		{
+        		light.gl_FrontLightProduct.resize(in_max_lights);
+        		light.gl_BackLightProduct.resize(in_max_lights);
+    		}
+    	}
+    	
+    	{
+        	vertex_arrays.color_array			= FpeVertexArrays::FpeClientArray(4, GL_FLOAT, 0, 0);
+        	vertex_arrays.edge_flag_array		= FpeVertexArrays::FpeClientArray(1, GL_BOOL, 0, 0);
+        	vertex_arrays.fog_coord_array		= FpeVertexArrays::FpeClientArray(4, GL_FLOAT, 0, 0);
+        	vertex_arrays.index_array			= FpeVertexArrays::FpeClientArray(4, GL_FLOAT, 0, 0);
+        	vertex_arrays.normal_array			= FpeVertexArrays::FpeClientArray(3, GL_FLOAT, 0, 0);
+        	vertex_arrays.tex_coord_arrays.resize(in_max_tex_coords, FpeVertexArrays::FpeClientArray(4, GL_FLOAT, 0, 0) );
+        	vertex_arrays.secondary_color_array = FpeVertexArrays::FpeClientArray(3, GL_FLOAT, 0, 0);
+        	vertex_arrays.vertex_array			= FpeVertexArrays::FpeClientArray(4, GL_FLOAT, 0, 0);
+    	}
+    	
+    	{
+    		alpha_test.alpha_func = GL_ALWAYS;
+    		alpha_test.alpha_ref = 0.0f;
+    	}
+    	
+    	{
+    		texture_env.texture_env_mode.resize(in_max_tex_coords, GL_MODULATE);
+    		texture_env.texture_env_color.resize(in_max_tex_coords, glm::vec4(0.0f) );
+    	}
+    	
+    	{
+    		state.current_bound_matrix_ptr = &matrices.gl_ModelViewMatrix;
+    		state.fog_enabled 				= false;
+    		state.lighting_enabled 			= false;
+    		state.light_enabled.resize		(in_max_lights, bool(false) );
+    		state.texture_unit_enabled.resize(in_max_tex_coords, false);
+    		state.tex_matrix_enabled.resize	(in_max_tex_coords, bool(false) );
+    		state.color_material_enabled 	= false;
+    		state.normalize_enabled 		= false;
+    		state.alpha_test_enabled 		= false;
+    		state.rescale_normal_enabled = false;
+    		
+    		state.current_active_texture_unit 		= 0;
+    		state.current_client_active_texture_unit = 0;
+    		
+    		state.current_bound_buffer 	= 0;
+        	state.current_bound_program = 0;
+        	state.current_bound_vao 	= 0;
+        }
+	}
+}
+
+OpenGL::UniformResource::UniformResource()
+{
+	binding = UINT_MAX;
+	
+	is_uniform_buffer = false;
+	is_sampler 		= false;
+}
+
+OpenGL::UniformResource::BufferBlockInfo::BufferInfo::BufferInfo()
+{
+	buffer_offset 			= UINT_MAX;
+	buffer_elements_num = 0;
+	buffer_element_size = 0;
+}
+
+OpenGL::UniformResource::BufferBlockInfo::BufferBlockInfo()
+{
+	is_default_uniform_buffer = true;
+	buffer_ptr 				= nullptr;
+}
+
+OpenGL::UniformResource::BufferBlockInfo::BufferBlockInfo(const BufferBlockInfo& in_buffer_block_info)
+{
+	is_default_uniform_buffer = in_buffer_block_info.is_default_uniform_buffer;
+	buffer_ptr 				= in_buffer_block_info.buffer_ptr;
+	
+	for (auto& current_in_buffer : in_buffer_block_info.buffers)
+	{
+		buffers.push_back(current_in_buffer);
+	}
+	
+	if (in_buffer_block_info.gl_buffer_reference_ptr != nullptr)
+	{
+		gl_buffer_reference_ptr = in_buffer_block_info.gl_buffer_reference_ptr->clone();
+	}
+	if (in_buffer_block_info.vk_buffer_reference_ptr != nullptr)
+	{
+		vk_buffer_reference_ptr = in_buffer_block_info.vk_buffer_reference_ptr->clone();
+	}
+}
+
+OpenGL::UniformResource::BufferBlockInfo::~BufferBlockInfo()
+{
+	if (is_default_uniform_buffer 		&&
+		gl_buffer_reference_ptr != nullptr)
+	{
+		GLuint frontend_buffer = gl_buffer_reference_ptr->get_payload().id;
+		
+		glDeleteBuffers(1,
+                        &frontend_buffer);
+	}
+	
+	gl_buffer_reference_ptr.reset();
+	vk_buffer_reference_ptr.reset();
+}
+
+OpenGL::UniformResource::SamplerInfo::SamplerInfo()
+{
+	texture_unit 	= UINT_MAX;
+	image_view_ptr = nullptr;
+	sampler_ptr 	= nullptr;
+}
+
+OpenGL::UniformResource::SamplerInfo::~SamplerInfo()
+{
+	gl_texture_reference_ptr.reset();
+	vk_image_reference_ptr.reset();
+}
+
+OpenGL::UniformResource::SamplerInfo::SamplerInfo(const SamplerInfo& in_sampler_info)
+{
+	texture_unit 	= in_sampler_info.texture_unit;
+	image_view_ptr = in_sampler_info.image_view_ptr;
+	sampler_ptr 	= in_sampler_info.sampler_ptr;
+	
+	if (in_sampler_info.gl_texture_reference_ptr != nullptr)
+	{
+		gl_texture_reference_ptr = in_sampler_info.gl_texture_reference_ptr->clone();
+	}
+	if (in_sampler_info.vk_image_reference_ptr != nullptr)
+	{
+		vk_image_reference_ptr = in_sampler_info.vk_image_reference_ptr->clone();
+	}
+}
 
 OpenGL::BufferState::BufferState()
 {
@@ -133,12 +384,12 @@ OpenGL::ContextState::ContextState(IContextObjectManagers* in_frontend_object_ma
     is_framebuffer_srgb_enabled = false;
     logic_op_mode               = OpenGL::LogicOpMode::Copy;
 
-    color_clear_value[0]             = 0;
-    color_clear_value[1]             = 0;
-    color_clear_value[2]             = 0;
-    color_clear_value[3]             = 0;
+    color_clear_value[0]             = 0.0f;
+    color_clear_value[1]             = 0.0f;
+    color_clear_value[2]             = 0.0f;
+    color_clear_value[3]             = 0.0f;
     color_writemask_for_draw_buffers = ~0;
-    depth_clear_value                = 1.0f;
+    depth_clear_value                = 1.0;
     depth_writemask                  = true;
     stencil_clear_value              = 0;
     stencil_writemask_back           = ~0;
@@ -297,7 +548,7 @@ OpenGL::ContextState& OpenGL::ContextState::operator=(const OpenGL::ContextState
                                                                                                                                               : nullptr;
     }
 
-    for (const auto& current_texture_unit_to_state_ptr_map_item : texture_unit_to_state_ptr_map)
+    for (const auto& current_texture_unit_to_state_ptr_map_item : in_context_state.texture_unit_to_state_ptr_map)
     {
         texture_unit_to_state_ptr_map[current_texture_unit_to_state_ptr_map_item.first].reset(
             new OpenGL::TextureUnitState(*current_texture_unit_to_state_ptr_map_item.second)
@@ -623,16 +874,22 @@ OpenGL::TextureState::TextureState(const OpenGL::TextureMinFilter& in_min_filter
 
 OpenGL::TextureUnitState::TextureUnitState()
 {
-    binding_1d                   = 0;
-    binding_1d_array             = 0;
-    binding_2d                   = 0;
-    binding_2d_array             = 0;
-    binding_2d_multisample       = 0;
-    binding_2d_multisample_array = 0;
-    binding_3d                   = 0;
-    binding_cube_map             = 0;
-    binding_rectangle            = 0;
-    binding_texture_buffer       = 0;
+    binding_1d        = 0;
+    binding_1d_array        = 0;
+    binding_2d        = 0;
+    binding_2d_array        = 0;
+    binding_2d_multisample        = 0;
+    binding_2d_multisample_array        = 0;
+    binding_3d        = 0;
+    binding_cube_map        = 0;
+    binding_cube_map_negative_x        = 0;
+    binding_cube_map_negative_y        = 0;
+    binding_cube_map_negative_z        = 0;
+    binding_cube_map_positive_x        = 0;
+    binding_cube_map_positive_y        = 0;
+    binding_cube_map_positive_z        = 0;
+    binding_rectangle        = 0;
+    binding_texture_buffer        = 0;
 }
 
 OpenGL::TransformFeedbackVaryingState::TransformFeedbackVaryingState()

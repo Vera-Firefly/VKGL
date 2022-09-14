@@ -25,6 +25,7 @@ namespace OpenGL
         virtual VKRenderpassManager*    get_renderpass_manager_ptr  () const = 0;
         virtual VKSPIRVManager*         get_spirv_manager_ptr       () const = 0;
         virtual VKSwapchainManager*     get_swapchain_manager_ptr   () const = 0;
+        virtual VKImageManager*     get_image_manager_ptr   () const = 0;
         virtual ThreadPool*             get_thread_pool_ptr         () const = 0;
     };
 
@@ -285,6 +286,13 @@ namespace OpenGL
                                       const OpenGL::PixelFormat& in_format,
                                       const OpenGL::PixelType&   in_type,
                                       const void*                in_pixels) = 0;
+        
+        virtual void update_uniform_data(const GLuint&              in_id,
+        								const GLint&				in_location,
+        								const GLsizei&				in_count,
+        								const void*					in_data_ptr) = 0;
+        
+        virtual void generate_mipmap(const GLuint&              in_id) = 0;
 
         virtual void present() = 0;
     };
@@ -319,6 +327,7 @@ namespace OpenGL
         virtual OpenGL::GLStateManager*        get_state_manager_ptr       () const = 0;
         virtual OpenGL::GLTextureManager*      get_texture_manager_ptr     () const = 0;
         virtual OpenGL::GLVAOManager*          get_vao_manager_ptr         () const = 0;
+        virtual OpenGL::GLCompatibilityManager*    get_compatibility_manager_ptr         () const = 0;
     };
 
     class IGLConstants
@@ -450,6 +459,28 @@ namespace OpenGL
                                                                               const OpenGL::TimeMarker& in_frontend_object_creation_time)       = 0;
 
         virtual OpenGL::TimeMarker                 get_tot_buffer_time_marker(const GLuint&             in_id,
+                                                                              const OpenGL::TimeMarker& in_frontend_object_creation_time) const = 0;
+    };
+    
+    class IVKImageManager
+    {
+    public:
+        virtual ~IVKImageManager()
+        {
+            /* Stub */
+        }
+
+        virtual OpenGL::VKImageReferenceUniquePtr acquire_object            (const GLuint&             in_id,
+                                                                              OpenGL::TimeMarker        in_frontend_object_creation_time,
+                                                                              OpenGL::TimeMarker        in_buffer_time_marker)                  = 0;
+        virtual bool                               create_object             (const GLuint&             in_id,
+                                                                              const OpenGL::TimeMarker& in_frontend_object_creation_time,
+                                                                              OpenGL::ObjectType			in_frontend_object_type)       = 0;
+
+        virtual bool                               destroy_object             (const GLuint&             in_id,
+                                                                              const OpenGL::TimeMarker& in_frontend_object_creation_time)       = 0;
+
+        virtual OpenGL::TimeMarker                 get_tot_image_time_marker(const GLuint&             in_id,
                                                                               const OpenGL::TimeMarker& in_frontend_object_creation_time) const = 0;
     };
 

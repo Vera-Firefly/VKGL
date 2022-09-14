@@ -14,6 +14,8 @@
 #endif
 
 #include "Anvil/deps/glslang/SPIRV/GlslangToSpv.h"
+#include "Anvil/include/misc/types.h"
+#include "Anvil/include/wrappers/descriptor_set_group.h"
 #include "Common/fence.h"
 #include "Common/shared_mutex.h"
 #include "OpenGL/types.h"
@@ -48,7 +50,10 @@ namespace OpenGL
         bool get_spirv_blob_id_for_program_reference(const GLuint&             in_program_id,
                                                      const OpenGL::TimeMarker& in_time_marker,
                                                      OpenGL::SPIRVBlobID*      out_result_ptr) const;
-
+        bool build_uniform_resources			(const SPIRVBlobID&        in_spirv_blob_id,
+        											const OpenGL::PostLinkData* in_post_link_data_ptr);
+        std::vector<OpenGL::UniformResource>* get_uniform_resources(const SPIRVBlobID&        in_spirv_blob_id) const;
+        Anvil::DescriptorSetGroup* 				get_descriptor_set_group(const SPIRVBlobID&        in_spirv_blob_id) const;
         SPIRVBlobID register_program  (OpenGL::GLProgramReferenceUniquePtr in_program_reference_ptr);
         SPIRVBlobID register_shader   (const OpenGL::ShaderType&           in_shader_type,
                                        const char*                         in_glsl);
@@ -89,6 +94,9 @@ namespace OpenGL
             Anvil::ShaderModuleUniquePtr shader_module_ptrs[static_cast<uint32_t>(OpenGL::ShaderType::Count)];
             std::vector<ShaderData*>     shader_ptrs;
             std::vector<uint8_t>         spirv_blobs[static_cast<uint32_t>(OpenGL::ShaderType::Count)];
+            std::vector<OpenGL::UniformResource>		uniform_resources;
+            bool 						need_rebuild_uniform_resources;
+            Anvil::DescriptorSetGroupUniquePtr descriptor_set_group_ptr;
 
             /* Temporary object stored until linking finishes and then released. It is used in order to ensure
              * frontend does not release corresponding descriptor until we're done doing things on the backend's end.
@@ -113,8 +121,10 @@ namespace OpenGL
         void compile_shader(ShaderData*  in_shader_data_ptr);
         void link_program  (ProgramData* in_program_data_ptr);
 
-        void patch_glsl_code(const ShaderData* in_shader_data_ptr,
-                             std::string&      inout_glsl_code);
+        void patch_glsl_code            (const ShaderData* in_shader_data_ptr,
+                                         std::string&      inout_glsl_code) const;
+        void restore_glsl_symbol_names(std::string&      inout_glsl_code) const;
+        void remove_unused_symbols(glslang::TIntermediate& in_intermediate) const;
 
         PostLinkDataUniquePtr      create_post_link_data                       (const glslang::TProgram*        in_program_data_ptr) const;
         OpenGL::GeometryInputType  get_geometry_input_type_for_layout_geometry (const glslang::TLayoutGeometry& in_layout_geometry)  const;

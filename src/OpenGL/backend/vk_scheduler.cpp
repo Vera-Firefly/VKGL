@@ -6,6 +6,7 @@
 #include "OpenGL/backend/vk_frame_graph.h"
 #include "OpenGL/backend/vk_scheduler.h"
 #include "OpenGL/backend/nodes/vk_buffer_data_node.h"
+#include "OpenGL/backend/nodes/vk_buffer_sub_data_node.h"
 #include "OpenGL/backend/nodes/vk_clear_node.h"
 #include "OpenGL/backend/nodes/vk_draw_node.h"
 #include "OpenGL/backend/nodes/vk_present_swapchain_image_node.h"
@@ -22,12 +23,16 @@ OpenGL::VKScheduler::VKScheduler(const IContextObjectManagers* in_frontend_ptr,
      m_frontend_ptr(in_frontend_ptr),
      m_terminating (false)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(in_backend_ptr  != nullptr);
     vkgl_assert(in_frontend_ptr != nullptr);
 }
 
 OpenGL::VKScheduler::~VKScheduler()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* Set a terminate flag and wait for the scheduler thread to quit */
     if (m_scheduler_thread_ptr != nullptr)
     {
@@ -43,6 +48,8 @@ OpenGL::VKScheduler::~VKScheduler()
 OpenGL::VKSchedulerUniquePtr OpenGL::VKScheduler::create(const IContextObjectManagers* in_frontend_ptr,
                                                          IBackend*                     in_backend_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     OpenGL::VKSchedulerUniquePtr result_ptr;
 
     result_ptr.reset(
@@ -63,6 +70,8 @@ OpenGL::VKSchedulerUniquePtr OpenGL::VKScheduler::create(const IContextObjectMan
 
 bool OpenGL::VKScheduler::init()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     bool result = false;
 
     /* 1. Instantiate the ring buffer. */
@@ -100,6 +109,8 @@ end:
 
 void OpenGL::VKScheduler::main_thread_entrypoint()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* NOTE: This entrypoint lives in its own dedicated thread */
     VKGL::g_logger_ptr->log(VKGL::LogLevel::Info,
                             "VK scheduler thread started.");
@@ -134,6 +145,8 @@ void OpenGL::VKScheduler::main_thread_entrypoint()
 
 void OpenGL::VKScheduler::process_buffer_data_command(OpenGL::CommandBaseUniquePtr in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto                               backend_buffer_manager_ptr   = m_backend_ptr->get_buffer_manager_ptr();
     OpenGL::VKBufferReferenceUniquePtr backend_buffer_reference_ptr;
     auto                               backend_frame_graph_ptr      = m_backend_ptr->get_frame_graph_ptr      ();
@@ -171,11 +184,49 @@ void OpenGL::VKScheduler::process_buffer_data_command(OpenGL::CommandBaseUniqueP
 
 void OpenGL::VKScheduler::process_buffer_sub_data_command(OpenGL::CommandBaseUniquePtr in_command_ptr)
 {
-    vkgl_not_implemented();
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+    auto                               backend_buffer_manager_ptr   = m_backend_ptr->get_buffer_manager_ptr();
+    OpenGL::VKBufferReferenceUniquePtr backend_buffer_reference_ptr;
+    auto                               backend_frame_graph_ptr      = m_backend_ptr->get_frame_graph_ptr      ();
+    OpenGL::BufferSubDataCommand*         command_ptr                  = dynamic_cast<OpenGL::BufferSubDataCommand*>(in_command_ptr.get() );
+    OpenGL::VKFrameGraphNodeUniquePtr  node_ptr;
+
+    vkgl_assert(command_ptr                       != nullptr);
+    vkgl_assert(command_ptr->buffer_reference_ptr != nullptr);
+
+    const auto& frontend_buffer_creation_time = command_ptr->buffer_reference_ptr->get_payload().object_creation_time;
+    const auto& frontend_buffer_id            = command_ptr->buffer_reference_ptr->get_payload().id;
+    const auto& frontend_buffer_snapshot_time = command_ptr->buffer_reference_ptr->get_payload().time_marker;
+
+    /* 1. Retrieve backend buffer reference */
+    {
+        backend_buffer_reference_ptr = backend_buffer_manager_ptr->acquire_object(frontend_buffer_id,
+                                                                                  frontend_buffer_creation_time,
+                                                                                  frontend_buffer_snapshot_time);
+
+        vkgl_assert(backend_buffer_reference_ptr != nullptr);
+    }
+
+    /* 2. Spawn the node */
+    {
+        node_ptr = OpenGL::VKNodes::BufferSubData::create(m_frontend_ptr,
+                                                       m_backend_ptr,
+                                                       std::move(backend_buffer_reference_ptr),
+                                                       std::move(command_ptr->buffer_reference_ptr),
+                                                       std::move(command_ptr->data_ptr),
+                                                       command_ptr->start_offset,
+                                                       command_ptr->size);
+    }
+
+    /* 3. Submit the node to frame graph manager. */
+    backend_frame_graph_ptr->add_node(std::move(node_ptr) );
 }
 
 void OpenGL::VKScheduler::process_clear_command(OpenGL::ClearCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto                              backend_frame_graph_ptr = m_backend_ptr->get_frame_graph_ptr ();
     OpenGL::ClearCommand*             command_ptr             = dynamic_cast<OpenGL::ClearCommand*>(in_command_ptr);
     OpenGL::VKFrameGraphNodeUniquePtr node_ptr;
@@ -196,6 +247,8 @@ void OpenGL::VKScheduler::process_clear_command(OpenGL::ClearCommand* in_command
 
 void OpenGL::VKScheduler::process_command(OpenGL::CommandBaseUniquePtr in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     switch (in_command_ptr->type)
     {
         case OpenGL::CommandType::BUFFER_DATA:                 process_buffer_data_command                (std::move(in_command_ptr) );                                                   break;
@@ -233,6 +286,7 @@ void OpenGL::VKScheduler::process_command(OpenGL::CommandBaseUniquePtr in_comman
         case OpenGL::CommandType::TEX_SUB_IMAGE_1D:            process_tex_sub_image_1D_command           (dynamic_cast<OpenGL::TexSubImage1DCommand*>          (in_command_ptr.get() )); break;
         case OpenGL::CommandType::TEX_SUB_IMAGE_2D:            process_tex_sub_image_2D_command           (dynamic_cast<OpenGL::TexSubImage2DCommand*>          (in_command_ptr.get() )); break;
         case OpenGL::CommandType::TEX_SUB_IMAGE_3D:            process_tex_sub_image_3D_command           (dynamic_cast<OpenGL::TexSubImage3DCommand*>          (in_command_ptr.get() )); break;
+        case OpenGL::CommandType::GENERATE_MIPMAP:                process_generate_mipmap_command               (dynamic_cast<OpenGL::GenerateMipmapCommand*>            (in_command_ptr.get() )); break;
         case OpenGL::CommandType::UNMAP_BUFFER:                process_unmap_buffer_command               (dynamic_cast<OpenGL::UnmapBufferCommand*>            (in_command_ptr.get() )); break;
         case OpenGL::CommandType::VALIDATE_PROGRAM:            process_validate_program_command           (dynamic_cast<OpenGL::ValidateProgramCommand*>        (in_command_ptr.get() )); break;
 
@@ -250,66 +304,92 @@ void OpenGL::VKScheduler::process_command(OpenGL::CommandBaseUniquePtr in_comman
 
 void OpenGL::VKScheduler::process_compressed_tex_image_1D_command(OpenGL::CompressedTexImage1DCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKScheduler::process_compressed_tex_image_2D_command(OpenGL::CompressedTexImage2DCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKScheduler::process_compressed_tex_image_3D_command(OpenGL::CompressedTexImage3DCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKScheduler::process_compressed_tex_sub_image_1D_command(OpenGL::CompressedTexSubImage1DCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKScheduler::process_compressed_tex_sub_image_2D_command(OpenGL::CompressedTexSubImage2DCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKScheduler::process_compressed_tex_sub_image_3D_command(OpenGL::CompressedTexSubImage3DCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKScheduler::process_copy_buffer_sub_data_command(OpenGL::CopyBufferSubDataCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKScheduler::process_copy_tex_image_1D_command(OpenGL::CopyTexImage1DCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKScheduler::process_copy_tex_image_2D_command(OpenGL::CopyTexImage2DCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKScheduler::process_copy_tex_sub_image_1D_command(OpenGL::CopyTexSubImage1DCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKScheduler::process_copy_tex_sub_image_2D_command(OpenGL::CopyTexSubImage2DCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKScheduler::process_copy_tex_sub_image_3D_command(OpenGL::CopyTexSubImage3DCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKScheduler::process_draw_arrays_command(OpenGL::CommandBaseUniquePtr in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto                              backend_frame_graph_ptr = m_backend_ptr->get_frame_graph_ptr      ();
     OpenGL::DrawArraysCommand*        command_ptr             = dynamic_cast<OpenGL::DrawArraysCommand*>(in_command_ptr.get() );
     OpenGL::VKFrameGraphNodeUniquePtr node_ptr;
@@ -336,6 +416,8 @@ void OpenGL::VKScheduler::process_draw_arrays_command(OpenGL::CommandBaseUniqueP
 
 void OpenGL::VKScheduler::process_draw_elements_command(OpenGL::DrawElementsCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto                              backend_frame_graph_ptr = m_backend_ptr->get_frame_graph_ptr();
     OpenGL::VKFrameGraphNodeUniquePtr node_ptr;
 
@@ -361,11 +443,15 @@ void OpenGL::VKScheduler::process_draw_elements_command(OpenGL::DrawElementsComm
 
 void OpenGL::VKScheduler::process_draw_range_elements_command(OpenGL::DrawRangeElementsCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKScheduler::process_finish_command(OpenGL::FinishCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     m_backend_ptr->get_frame_graph_ptr()->execute(true      /* in_block_until_finished */,
                                                   nullptr); /* in_opt_fence_ptr        */
 
@@ -374,47 +460,65 @@ void OpenGL::VKScheduler::process_finish_command(OpenGL::FinishCommand* in_comma
 
 void OpenGL::VKScheduler::process_flush_command(OpenGL::FlushCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     m_backend_ptr->get_frame_graph_ptr()->execute(false /* in_block_until_finished */,
                                                   in_command_ptr->fence_ptr);
 }
 
 void OpenGL::VKScheduler::process_flush_mapped_buffer_range_command(OpenGL::FlushMappedBufferRangeCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKScheduler::process_get_buffer_sub_data_command(OpenGL::GetBufferSubDataCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKScheduler::process_get_compressed_tex_image_command(OpenGL::GetCompressedTexImageCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKScheduler::process_get_texture_image_command(OpenGL::GetTextureImageCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKScheduler::process_map_buffer_command(OpenGL::MapBufferCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKScheduler::process_multi_draw_arrays_command(OpenGL::MultiDrawArraysCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKScheduler::process_multi_draw_elements_command(OpenGL::MultiDrawElementsCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKScheduler::process_present_command(OpenGL::PresentCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* TODO: Is it 100% OK swapchain reference is initialized from a ToT marker here? */
     auto                              backend_frame_graph_ptr = m_backend_ptr->get_frame_graph_ptr();
     OpenGL::VKFrameGraphNodeUniquePtr node_ptr;
@@ -431,51 +535,78 @@ void OpenGL::VKScheduler::process_present_command(OpenGL::PresentCommand* in_com
 
 void OpenGL::VKScheduler::process_read_pixels_command(OpenGL::ReadPixelsCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKScheduler::process_tex_image_1D_command(OpenGL::TexImage1DCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKScheduler::process_tex_image_2D_command(OpenGL::TexImage2DCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKScheduler::process_tex_image_3D_command(OpenGL::TexImage3DCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKScheduler::process_tex_sub_image_1D_command(OpenGL::TexSubImage1DCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKScheduler::process_tex_sub_image_2D_command(OpenGL::TexSubImage2DCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKScheduler::process_tex_sub_image_3D_command(OpenGL::TexSubImage3DCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+    vkgl_not_implemented();
+}
+
+void OpenGL::VKScheduler::process_generate_mipmap_command(OpenGL::GenerateMipmapCommand* in_command_ptr)
+{
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKScheduler::process_unmap_buffer_command(OpenGL::UnmapBufferCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKScheduler::process_validate_program_command(OpenGL::ValidateProgramCommand* in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 void OpenGL::VKScheduler::submit(OpenGL::CommandBaseUniquePtr in_command_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* NOTE: This entrypoint is called from application thread. */
     vkgl_assert(m_command_ring_buffer_ptr != nullptr);
 

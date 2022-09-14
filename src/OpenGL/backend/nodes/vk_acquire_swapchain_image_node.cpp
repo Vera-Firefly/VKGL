@@ -14,6 +14,8 @@ OpenGL::VKNodes::AcquireSwapchainImage::AcquireSwapchainImage(const IContextObje
     :m_backend_ptr (in_backend_ptr),
      m_frontend_ptr(in_frontend_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_backend_ptr  != nullptr);
     vkgl_assert(m_frontend_ptr != nullptr);
 
@@ -27,6 +29,8 @@ OpenGL::VKNodes::AcquireSwapchainImage::AcquireSwapchainImage(const IContextObje
 
 OpenGL::VKNodes::AcquireSwapchainImage::~AcquireSwapchainImage()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     m_info_ptr.reset                ();
     m_swapchain_reference_ptr.reset();
 }
@@ -34,6 +38,8 @@ OpenGL::VKNodes::AcquireSwapchainImage::~AcquireSwapchainImage()
 OpenGL::VKFrameGraphNodeUniquePtr OpenGL::VKNodes::AcquireSwapchainImage::create(const IContextObjectManagers* in_frontend_ptr,
                                                                                  const IBackend*               in_backend_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     OpenGL::VKFrameGraphNodeUniquePtr result_ptr(nullptr,
                                                  std::default_delete<OpenGL::IVKFrameGraphNode>() );
 
@@ -48,6 +54,8 @@ OpenGL::VKFrameGraphNodeUniquePtr OpenGL::VKNodes::AcquireSwapchainImage::create
 
 void OpenGL::VKNodes::AcquireSwapchainImage::do_cpu_prepass(IVKFrameGraphNodeCallback* in_callback_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     Anvil::SwapchainOperationErrorCode frame_acquire_result;
     auto                               frame_acquire_sem_ptr    = Anvil::SemaphoreUniquePtr(nullptr,
                                                                                             std::default_delete<Anvil::Semaphore>() );

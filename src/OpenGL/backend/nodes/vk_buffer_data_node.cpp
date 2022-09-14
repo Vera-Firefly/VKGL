@@ -25,6 +25,8 @@ OpenGL::VKNodes::BufferData::BufferData(const IContextObjectManagers*      in_fr
      m_frontend_ptr                 (in_frontend_ptr),
      m_frontend_buffer_reference_ptr(std::move(in_frontend_buffer_reference_ptr) )
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const auto size = m_frontend_ptr->get_buffer_manager_ptr()->get_buffer_size(m_frontend_buffer_reference_ptr->get_payload().id,
                                                                                &m_frontend_buffer_reference_ptr->get_payload().time_marker);
 
@@ -67,6 +69,8 @@ OpenGL::VKNodes::BufferData::BufferData(const IContextObjectManagers*      in_fr
 
 OpenGL::VKNodes::BufferData::~BufferData()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     m_backend_buffer_reference_ptr.reset ();
     m_data_ptr.reset                     ();
     m_frontend_buffer_reference_ptr.reset();
@@ -78,6 +82,8 @@ bool OpenGL::VKNodes::BufferData::can_memory_block_handle_frontend_reqs(const An
                                                                         const size_t&               in_size,
                                                                         const OpenGL::BufferUsage&  in_buffer_usage) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto       mem_block_create_info_ptr     = in_mem_block_ptr->get_create_info_ptr();
     const auto required_memory_feature_flags = OpenGL::VKUtils::get_memory_feature_flags_for_gl_buffer(in_buffer_usage);
     bool       result                        = true;
@@ -108,6 +114,8 @@ OpenGL::VKFrameGraphNodeUniquePtr OpenGL::VKNodes::BufferData::create(const ICon
                                                                       OpenGL::GLBufferReferenceUniquePtr in_frontend_buffer_reference_ptr,
                                                                       OpenGL::DataUniquePtr              in_opt_data_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     OpenGL::VKFrameGraphNodeUniquePtr result_ptr(nullptr,
                                                  std::default_delete<OpenGL::IVKFrameGraphNode>() );
 
@@ -125,6 +133,8 @@ OpenGL::VKFrameGraphNodeUniquePtr OpenGL::VKNodes::BufferData::create(const ICon
 
 void OpenGL::VKNodes::BufferData::do_cpu_prepass(IVKFrameGraphNodeCallback*)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* NOTE: "Buffer data" command drops existing memory storage. For perf reasons, we can skip this step IF
      *
      *       1) the new storage size and usage property matches the former one's.
@@ -255,6 +265,8 @@ void OpenGL::VKNodes::BufferData::do_cpu_prepass(IVKFrameGraphNodeCallback*)
 void OpenGL::VKNodes::BufferData::get_supported_queue_families(uint32_t*                          out_n_queue_fams_ptr,
                                                                const Anvil::QueueFamilyFlagBits** out_queue_fams_ptr_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     static const Anvil::QueueFamilyFlagBits compatible_queue_fams[] =
     {
         Anvil::QueueFamilyFlagBits::DMA_BIT,
@@ -270,6 +282,8 @@ void OpenGL::VKNodes::BufferData::record_commands(Anvil::CommandBufferBase*  in_
                                                   const bool&                in_inside_renderpass,
                                                   IVKFrameGraphNodeCallback* in_graph_callback_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     if (m_staging_buffer_ptr != nullptr)
     {
         auto              backend_buffer_ptr = m_info_ptr->inputs.at(0).buffer_reference_ptr->get_payload().buffer_ptr;
@@ -303,11 +317,15 @@ void OpenGL::VKNodes::BufferData::record_commands(Anvil::CommandBufferBase*  in_
 
 bool OpenGL::VKNodes::BufferData::requires_gpu_side_execution() const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     return m_data_ptr != nullptr;
 }
 
 OpenGL::RenderpassSupportScope OpenGL::VKNodes::BufferData::get_renderpass_support_scope() const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     return (m_data_ptr == nullptr) ? OpenGL::RenderpassSupportScope::Supported      //< No commands will be recorded in this case.
                                    : OpenGL::RenderpassSupportScope::Not_Supported; //< Buffer->buffer copy ops are NOT supported for renderpass usage.
 }

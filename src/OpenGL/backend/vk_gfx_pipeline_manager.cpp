@@ -86,13 +86,15 @@ OpenGL::VKGFXPipelineManager::GLState::GLState()
                                                             OpenGL::TimeMarker(std::chrono::nanoseconds(0) ),
                                                             OpenGL::TimeMarker(std::chrono::nanoseconds(0) ) ))
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* Stub */
 }
 
 OpenGL::VKGFXPipelineManager::GLState::GLState(const OpenGL::ContextState*                    in_context_state_ptr,
                                                const OpenGL::GLContextStateBindingReferences* in_context_state_binding_refs_ptr)
     :program_reference_payload(in_context_state_binding_refs_ptr->program_reference_ptr->get_payload() ),
-     vao_reference_payload    (in_context_state_ptr->vao_proxy_reference_ptr->get_payload           () ), // todo: move to state bindings struct
+     vao_reference_payload    (in_context_state_binding_refs_ptr->vao_reference_ptr->get_payload    () ),
 
      is_blend_enabled                    (in_context_state_ptr->is_blend_enabled),
      is_color_logic_op_enabled           (in_context_state_ptr->is_color_logic_op_enabled),
@@ -160,6 +162,8 @@ OpenGL::VKGFXPipelineManager::GLState::GLState(const OpenGL::ContextState*      
 
      polygon_mode                        (in_context_state_ptr->polygon_mode)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* Stub */
 }
 
@@ -168,7 +172,10 @@ Anvil::GraphicsPipelineCreateInfoUniquePtr OpenGL::VKGFXPipelineManager::GFXPipe
                                                                                                                   const Anvil::PrimitiveTopology& in_primitive_topology,
                                                                                                                   const Anvil::SubPassID&         in_subpass_id) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     Anvil::GraphicsPipelineCreateInfoUniquePtr result_ptr;
+    SPIRVBlobID          					spirv_blob_id = UINT32_MAX;
 
     /* Spawn a create info instance for the pipeline */
     {
@@ -176,7 +183,6 @@ Anvil::GraphicsPipelineCreateInfoUniquePtr OpenGL::VKGFXPipelineManager::GFXPipe
         Anvil::ShaderModule* fs_sm_ptr             = nullptr;
         const char*          gs_sm_entrypoint_name = nullptr;
         Anvil::ShaderModule* gs_sm_ptr             = nullptr;
-        SPIRVBlobID          spirv_blob_id         = UINT32_MAX;
         const char*          vs_sm_entrypoint_name = nullptr;
         Anvil::ShaderModule* vs_sm_ptr             = nullptr;
 
@@ -295,6 +301,17 @@ Anvil::GraphicsPipelineCreateInfoUniquePtr OpenGL::VKGFXPipelineManager::GFXPipe
         }
     }
 
+    /* Attach descriptor sets as per bound program */
+    {
+        auto dsg_ptr    	= in_spirv_manager_ptr->get_descriptor_set_group(spirv_blob_id);
+        vkgl_assert(dsg_ptr != nullptr);
+
+        auto ds_create_info_vec_ptr 	= dsg_ptr->get_descriptor_set_create_info();
+        vkgl_assert(ds_create_info_vec_ptr != nullptr);
+
+        result_ptr->set_descriptor_set_create_info(ds_create_info_vec_ptr);
+    }
+
     /* TODO: Blending support */
     vkgl_assert(!gl_state.is_blend_enabled);
 
@@ -363,6 +380,8 @@ end:
 
 Anvil::Format OpenGL::VKGFXPipelineManager::GFXPipelineProps::get_format_for_vaa(const OpenGL::VertexAttributeArrayState& in_vaa) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     Anvil::Format result = Anvil::Format::UNKNOWN;
 
     /* TODO. Not a GL3.2 feature */
@@ -515,6 +534,8 @@ Anvil::Format OpenGL::VKGFXPipelineManager::GFXPipelineProps::get_format_for_vaa
 
 uint32_t OpenGL::VKGFXPipelineManager::GFXPipelineProps::get_tightly_packed_stride_for_vaa(const OpenGL::VertexAttributeArrayState& in_vaa) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     uint32_t result = 0;
 
     /* TODO. Not a GL3.2 feature */
@@ -542,6 +563,8 @@ uint32_t OpenGL::VKGFXPipelineManager::GFXPipelineProps::get_tightly_packed_stri
 
 OpenGL::VKGFXPipelineManager::GLStateHash OpenGL::VKGFXPipelineManager::GLState::get_hash() const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     uint64_t hash_contributions[6] = {0, 0, 0, 0, 0, 0};
 
     hash_contributions[0] = ((is_blend_enabled)                     ? (1 << 0)  : 0)        |
@@ -636,6 +659,8 @@ OpenGL::VKGFXPipelineManager::GFXPipelineProps::GFXPipelineProps(IBackend*      
                 in_context_state_binding_refs_ptr),
      rp_ptr    (in_rp_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto gfx_pipeline_create_info_ptr = create_create_info_ptr(in_frontend_ptr->get_vao_manager_ptr (),
                                                                in_backend_ptr->get_spirv_manager_ptr(),
                                                                in_primitive_topology,
@@ -654,6 +679,8 @@ OpenGL::VKGFXPipelineManager::GFXPipelineProps::GFXPipelineProps(IBackend*      
 
 OpenGL::VKGFXPipelineManager::GFXPipelineProps::~GFXPipelineProps()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     if (!device_ptr->get_graphics_pipeline_manager()->delete_pipeline(pipeline_id) )
     {
         vkgl_assert_fail();
@@ -665,17 +692,23 @@ OpenGL::VKGFXPipelineManager::VKGFXPipelineManager(IBackend*                    
     :m_backend_ptr (in_backend_ptr),
      m_frontend_ptr(in_frontend_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* Stub */
 }
 
 OpenGL::VKGFXPipelineManager::~VKGFXPipelineManager()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* Stub */
 }
 
 OpenGL::VKGFXPipelineManagerUniquePtr OpenGL::VKGFXPipelineManager::create(IBackend*                     in_backend_ptr,
                                                                            const IContextObjectManagers* in_frontend_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     OpenGL::VKGFXPipelineManagerUniquePtr result_ptr;
 
     result_ptr.reset(new VKGFXPipelineManager(in_backend_ptr,
@@ -692,6 +725,8 @@ OpenGL::GFXPipelineID OpenGL::VKGFXPipelineManager::get_pipeline_id(const OpenGL
                                                                     const Anvil::RenderPass*                       in_rp_ptr,
                                                                     const Anvil::SubPassID&                        in_subpass_id)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const auto            gl_state      = GLState          (in_context_state_ptr,
                                                             in_context_state_binding_refs_ptr);
     const auto            gl_state_hash = gl_state.get_hash();
@@ -720,7 +755,7 @@ OpenGL::GFXPipelineID OpenGL::VKGFXPipelineManager::get_pipeline_id(const OpenGL
                 if (rp_hash_iterator                             != gl_state_hash_iterator->second.end() &&
                     rp_hash_iterator->second.find(in_subpass_id) != rp_hash_iterator->second.end      () )
                 {
-                    auto& subpass_iterator = rp_hash_iterator->second.find(in_subpass_id);
+                    auto subpass_iterator = rp_hash_iterator->second.find(in_subpass_id);
 
                     if (subpass_iterator->second.at(static_cast<uint32_t>(in_primitive_topology) ) != nullptr)
                     {

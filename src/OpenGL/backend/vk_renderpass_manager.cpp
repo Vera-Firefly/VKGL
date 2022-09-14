@@ -9,16 +9,22 @@
 OpenGL::VKRenderpassManager::VKRenderpassManager(IBackend* in_backend_ptr)
     :m_backend_ptr(in_backend_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(in_backend_ptr != nullptr);
 }
 
 OpenGL::VKRenderpassManager::~VKRenderpassManager()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* Stub for now */
 }
 
 OpenGL::VKRenderpassManagerUniquePtr OpenGL::VKRenderpassManager::create(IBackend* in_backend_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     OpenGL::VKRenderpassManagerUniquePtr result_ptr;
 
     result_ptr.reset(new OpenGL::VKRenderpassManager(in_backend_ptr) );
@@ -29,6 +35,8 @@ OpenGL::VKRenderpassManagerUniquePtr OpenGL::VKRenderpassManager::create(IBacken
 
 Anvil::RenderPass* OpenGL::VKRenderpassManager::get_render_pass(Anvil::RenderPassCreateInfoUniquePtr in_rp_create_info_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto               in_rp_create_info_raw_ptr = in_rp_create_info_ptr.get();
     Anvil::RenderPass* result_ptr                = nullptr;
     const auto         rp_hash                   = get_rp_hash(in_rp_create_info_raw_ptr);
@@ -79,6 +87,8 @@ Anvil::RenderPass* OpenGL::VKRenderpassManager::get_render_pass(Anvil::RenderPas
 
 OpenGL::RenderPassHash OpenGL::VKRenderpassManager::get_rp_hash(const Anvil::RenderPassCreateInfo* in_rp_create_info_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* NOTE: When calculating a hash for the renderpass, we intentionally exclude all information which is irrelevant
      *       in light of renderpass compatibility rules. By doing so, we implicitly introduce support for RP reuse */
     const uint32_t n_rp_attachments = in_rp_create_info_ptr->get_n_attachments ();
@@ -256,6 +266,8 @@ OpenGL::RenderPassHash OpenGL::VKRenderpassManager::get_rp_hash(const Anvil::Ren
 bool OpenGL::VKRenderpassManager::is_rp_compatible(const Anvil::RenderPassCreateInfo* in_rp1_create_info_ptr,
                                                    const Anvil::RenderPassCreateInfo* in_rp2_create_info_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const uint32_t n_rp_attachments = in_rp1_create_info_ptr->get_n_attachments ();
     const uint32_t n_rp_deps        = in_rp1_create_info_ptr->get_n_dependencies();
     const uint32_t n_rp_subpasses   = in_rp1_create_info_ptr->get_n_subpasses   ();

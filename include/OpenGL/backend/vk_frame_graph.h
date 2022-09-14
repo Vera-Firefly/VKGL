@@ -61,6 +61,19 @@ namespace OpenGL
             }
         } BufferInfo;
 
+        typedef struct ImageInfo
+        {
+            Anvil::ImageLayout aspect_layout;
+            uint32_t           owning_queue_family_index;
+
+            ImageInfo()
+                :aspect_layout      (Anvil::ImageLayout::UNDEFINED),    //< default value as per spec
+                 owning_queue_family_index(UINT32_MAX)
+            {
+                /* Stub */
+            }
+        } ImageInfo;
+
         struct CommandBufferDynamicState
         {
             Anvil::PipelineID bound_gfx_pipeline_id;
@@ -335,20 +348,20 @@ namespace OpenGL
             std::vector<GroupNodeUniquePtr>               group_node_ptrs_vec;
             std::vector<VKFrameGraphNodeUniquePtr>        node_ptrs_vec;
             std::vector<Anvil::SemaphoreUniquePtr>        sem_ptr_vec;
-
+            
             ActiveSubmission(Anvil::FenceUniquePtr                          in_fence_ptr,
                              std::vector<GroupNodeUniquePtr>&               inout_group_node_ptrs_vec,
                              std::vector<VKFrameGraphNodeUniquePtr>&        inout_node_ptrs_vec,
                              std::vector<CommandBufferSubmissionUniquePtr>& inout_cmd_buffer_submission_ptr_vec,
                              std::vector<Anvil::SemaphoreUniquePtr>&        inout_sem_ptr_vec,
                               VKGL::Fence*                                  in_fence2_ptr)
-                :cmd_buffer_submission_ptr_vec(std::move(inout_cmd_buffer_submission_ptr_vec) ),
-                 fence_ptr                    (std::move(in_fence_ptr) ),
-                 fence2_ptr                   (in_fence2_ptr),
-                 group_node_ptrs_vec          (std::move(inout_group_node_ptrs_vec) ),
-                 node_ptrs_vec                (std::move(inout_node_ptrs_vec) ),
-                 sem_ptr_vec                  (std::move(inout_sem_ptr_vec) )
             {
+                 cmd_buffer_submission_ptr_vec = (std::move(inout_cmd_buffer_submission_ptr_vec) );
+                 fence_ptr                         = (std::move(in_fence_ptr) );
+                 fence2_ptr                        = (in_fence2_ptr);
+                 group_node_ptrs_vec             = (std::move(inout_group_node_ptrs_vec) );
+                 node_ptrs_vec                    = (std::move(inout_node_ptrs_vec) );
+                 sem_ptr_vec                      = (std::move(inout_sem_ptr_vec) );
                 /* Stub */
             }
         } ActiveSubmission;
@@ -401,6 +414,12 @@ namespace OpenGL
                                                             const Anvil::Queue*                               in_opt_queue_ptr,
                                                             const Anvil::AccessFlags&                         in_access_mask,
                                                             Anvil::PipelineStageFlags&                        inout_src_pipeline_stages);
+        void process_image_node_input            		(std::vector<Anvil::ImageBarrier>&                 inout_image_barriers,
+                                                            const NodeIO*                                     in_input_ptr,
+                                                            const Anvil::Queue*                               in_opt_queue_ptr,
+                                                            const Anvil::AccessFlags&                         in_access_masks,
+                                                            Anvil::PipelineStageFlags&                        inout_src_pipeline_stages,
+                                                            const bool&                                       in_parent_group_node_uses_renderpass);
         void process_swapchain_image_node_input            (std::vector<Anvil::ImageBarrier>&                 inout_image_barriers,
                                                             const NodeIO*                                     in_input_ptr,
                                                             const Anvil::Queue*                               in_opt_queue_ptr,
@@ -449,6 +468,7 @@ namespace OpenGL
 
         std::unordered_map<Anvil::Buffer*, BufferInfo> m_buffer_data; //< todo: Use binary tree or a more fancy structure to speed up coalesce/split ops
                                                                       //< todo: Use buffer memory subregions instead of buffer instances.
+        std::unordered_map<Anvil::Image*, ImageInfo> m_image_data;
         std::vector<SwapchainImageInfo>                m_swapchain_image_data;
 
         std::vector<Anvil::PipelineStageFlags> m_wait_sem_stage_masks_for_current_cpu_node;

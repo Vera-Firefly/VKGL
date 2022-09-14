@@ -27,6 +27,9 @@ namespace OpenGL
                                        const OpenGL::GetSetArgumentType&   in_arg_type,
                                        const uint32_t&                     in_n_args,
                                        void*                               out_result_ptr) const;
+        bool get_renderbuffer_state_ptr(const GLuint&                     in_id,
+                                  		const OpenGL::TimeMarker*         in_opt_time_marker_ptr,
+                                  		const OpenGL::RenderbufferState**	out_state_ptr) const;
 
         bool set_renderbuffer_storage(const GLuint&                 in_id,
                                       const OpenGL::InternalFormat& in_internalformat,
@@ -48,6 +51,8 @@ namespace OpenGL
 
         typedef struct Renderbuffer
         {
+            RenderbufferState		renderbuffer_state;
+            
             uint32_t               alpha_size; //< todo: backend needs to set this at backend-side object creation time
             uint32_t               blue_size;  //< todo: backend needs to set this at backend-side object creation time
             uint32_t               depth_size; //< todo: backend needs to set this at backend-side object creation time

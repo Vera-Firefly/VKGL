@@ -5,7 +5,9 @@
 #ifndef VKGL_GL_REFERENCE_H
 #define VKGL_GL_REFERENCE_H
 
-#include "GL/glcorearb.h"
+#define GL_GLEXT_PROTOTYPES
+
+#include "Khronos/GL/gl.h"
 #include "OpenGL/reference.h"
 #include <chrono>
 
@@ -17,7 +19,7 @@ namespace OpenGL
         OpenGL::TimeMarker object_creation_time;
         OpenGL::TimeMarker time_marker;
 
-        const GLPayload(const GLuint&             in_id,
+        GLPayload(const GLuint&             in_id,
                         const OpenGL::TimeMarker& in_time_marker,
                         const OpenGL::TimeMarker& in_object_creation_time)
            :id                  (in_id),
@@ -59,7 +61,7 @@ namespace OpenGL
     {
         OpenGL::TimeMarker time_marker;
 
-        const GLContextStatePayload(const OpenGL::TimeMarker& in_time_marker);
+        GLContextStatePayload(const OpenGL::TimeMarker& in_time_marker);
 
         bool operator==(const GLContextStatePayload& in_ref) const
         {

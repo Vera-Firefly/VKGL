@@ -49,6 +49,7 @@ namespace OpenGL
         TEX_SUB_IMAGE_1D,
         TEX_SUB_IMAGE_2D,
         TEX_SUB_IMAGE_3D,
+        GENERATE_MIPMAP,
         UNMAP_BUFFER,
         VALIDATE_PROGRAM,
 
@@ -796,11 +797,11 @@ namespace OpenGL
                                const OpenGL::DrawCallMode&              in_mode,
                                OpenGL::GLContextStateReferenceUniquePtr in_state_reference_ptr)
             :CommandBase        (CommandType::MULTI_DRAW_ARRAYS),
-             count_ptr          (std::move(count_ptr) ),
-             drawcount          (drawcount),
-             first_ptr          (std::move(first_ptr) ),
-             mode               (mode),
-             state_reference_ptr(std::move(state_reference_ptr) )
+             count_ptr          (std::move(in_count_ptr) ),
+             drawcount          (in_drawcount),
+             first_ptr          (std::move(in_first_ptr) ),
+             mode               (in_mode),
+             state_reference_ptr(std::move(in_state_reference_ptr) )
         {
             /* Stub */
         }
@@ -1091,6 +1092,19 @@ namespace OpenGL
              xoffset              (in_xoffset),
              yoffset              (in_yoffset),
              zoffset              (in_zoffset)
+        {
+            /* NOTE: Backend must not be fed references pointing to ToT snapshots (since it's out-of-sync with frontend) */
+            vkgl_assert(texture_reference_ptr->get_payload().time_marker != OpenGL::LATEST_SNAPSHOT_AVAILABLE);
+        }
+    };
+
+    struct GenerateMipmapCommand : public CommandBase
+    {
+        OpenGL::GLTextureReferenceUniquePtr texture_reference_ptr;
+
+        GenerateMipmapCommand(OpenGL::GLTextureReferenceUniquePtr in_texture_reference_ptr)
+            :CommandBase         (CommandType::GENERATE_MIPMAP),
+             texture_reference_ptr(std::move(in_texture_reference_ptr) )
         {
             /* NOTE: Backend must not be fed references pointing to ToT snapshots (since it's out-of-sync with frontend) */
             vkgl_assert(texture_reference_ptr->get_payload().time_marker != OpenGL::LATEST_SNAPSHOT_AVAILABLE);

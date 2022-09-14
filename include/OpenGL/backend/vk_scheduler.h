@@ -68,6 +68,7 @@ namespace OpenGL
         void process_tex_sub_image_1D_command           (OpenGL::TexSubImage1DCommand*           in_command_ptr);
         void process_tex_sub_image_2D_command           (OpenGL::TexSubImage2DCommand*           in_command_ptr);
         void process_tex_sub_image_3D_command           (OpenGL::TexSubImage3DCommand*           in_command_ptr);
+        void process_generate_mipmap_command               (OpenGL::GenerateMipmapCommand*             in_command_ptr);
         void process_unmap_buffer_command               (OpenGL::UnmapBufferCommand*             in_command_ptr);
         void process_validate_program_command           (OpenGL::ValidateProgramCommand*         in_command_ptr);
 

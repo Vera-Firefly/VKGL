@@ -31,18 +31,24 @@ OpenGL::VKSwapchainManager::VKSwapchainManager(OpenGL::IBackend*                
      m_pixel_format_reqs        (in_pixel_format_reqs),
      m_should_recreate_swapchain(false)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(m_backend_ptr        != nullptr);
     vkgl_assert(m_n_swapchain_images != 0);
 }
 
 OpenGL::VKSwapchainManager::~VKSwapchainManager()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     m_time_marker_to_internal_swapchain_data_map.clear();
     m_snapshot_manager_ptr.reset                      ();
 }
 
 OpenGL::VKSwapchainReferenceUniquePtr OpenGL::VKSwapchainManager::acquire_swapchain(const OpenGL::TimeMarker& in_time_marker)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     std::lock_guard<std::mutex> lock(m_mutex);
 
     decltype(m_time_marker_to_internal_swapchain_data_map)::const_iterator internal_swapchain_data_iterator = m_time_marker_to_internal_swapchain_data_map.find(in_time_marker);
@@ -126,6 +132,8 @@ OpenGL::VKSwapchainManagerUniquePtr OpenGL::VKSwapchainManager::create(IBackend*
                                                                        const uint32_t&                      in_n_swapchain_images,
                                                                        const VKGL::PixelFormatRequirements& in_pixel_format_reqs)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     OpenGL::VKSwapchainManagerUniquePtr result_ptr;
 
     result_ptr.reset(new OpenGL::VKSwapchainManager(in_backend_ptr,
@@ -149,6 +157,8 @@ bool OpenGL::VKSwapchainManager::create_ds_image_views(const Anvil::Format&     
                                                        std::vector<Anvil::ImageUniquePtr>&     out_ds_image_ptrs,
                                                        std::vector<Anvil::ImageViewUniquePtr>& out_ds_image_view_ptrs) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto       allocator_ptr       = m_backend_ptr->get_memory_allocator_ptr();
     auto       device_ptr          = dynamic_cast<Anvil::SGPUDevice*>(m_backend_ptr->get_device_ptr() );
     bool       result              = false;
@@ -243,6 +253,8 @@ std::unique_ptr<void, std::function<void(void*)> > OpenGL::VKSwapchainManager::c
 OpenGL::VKSwapchainManager::InternalSwapchainDataUniquePtr OpenGL::VKSwapchainManager::create_swapchain(const SwapchainPropsSnapshot*  in_swapchain_props_ptr,
                                                                                                         InternalSwapchainDataUniquePtr in_opt_former_swapchain_data_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto                                   device_ptr                  = m_backend_ptr->get_device_ptr();
     std::vector<Anvil::ImageUniquePtr>     ds_images;
     std::vector<Anvil::ImageViewUniquePtr> ds_image_views;
@@ -281,8 +293,9 @@ OpenGL::VKSwapchainManager::InternalSwapchainDataUniquePtr OpenGL::VKSwapchainMa
     /* 1. Create a window wrapper for the window handle specified by the app. */
     if (!is_recreate_request)
     {
-        window_ptr = Anvil::WindowFactory::create_window(Anvil::WINDOW_PLATFORM_SYSTEM,
-                                                         in_swapchain_props_ptr->window_handle);
+        window_ptr = Anvil::WindowFactory::create_window(Anvil::WINDOW_PLATFORM_ANDROID,
+        													reinterpret_cast<WindowHandle>(in_swapchain_props_ptr->window_handle),
+        													nullptr);
 
         if (window_ptr == nullptr)
         {
@@ -389,8 +402,8 @@ OpenGL::VKSwapchainManager::InternalSwapchainDataUniquePtr OpenGL::VKSwapchainMa
         }
 
         if (!create_ds_image_views(format_vk,
-                                   window_ptr->get_width_at_creation_time (),
-                                   window_ptr->get_height_at_creation_time(),
+                                   rendering_surface_ptr->get_width (),
+                                   rendering_surface_ptr->get_height(),
                                    ds_images,
                                    ds_image_views) )
         {
@@ -494,6 +507,8 @@ end:
 Anvil::Image* OpenGL::VKSwapchainManager::get_ds_image(const OpenGL::TimeMarker& in_time_marker,
                                                        const uint32_t&           in_n_swapchain_image)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     std::lock_guard<std::mutex> lock(m_mutex);
 
     auto internal_data_iterator = m_time_marker_to_internal_swapchain_data_map.find(in_time_marker);
@@ -506,6 +521,8 @@ Anvil::Image* OpenGL::VKSwapchainManager::get_ds_image(const OpenGL::TimeMarker&
 Anvil::ImageView* OpenGL::VKSwapchainManager::get_ds_image_view(const OpenGL::TimeMarker& in_time_marker,
                                                                 const uint32_t&           in_n_swapchain_image)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     std::lock_guard<std::mutex> lock(m_mutex);
 
     auto internal_data_iterator = m_time_marker_to_internal_swapchain_data_map.find(in_time_marker);
@@ -518,6 +535,8 @@ Anvil::ImageView* OpenGL::VKSwapchainManager::get_ds_image_view(const OpenGL::Ti
 Anvil::PresentModeKHR OpenGL::VKSwapchainManager::get_present_mode_for_swapchain_props(const SwapchainPropsSnapshot*  in_swapchain_props_ptr,
                                                                                        const Anvil::RenderingSurface* in_surface_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     Anvil::PresentModeKHR result = Anvil::PresentModeKHR::UNKNOWN;
 
     /* What's the preferred present mode, given swap interval setting? */
@@ -574,6 +593,8 @@ end:
 
 Anvil::Queue* OpenGL::VKSwapchainManager::get_presentable_queue(const OpenGL::TimeMarker& in_time_marker)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     std::lock_guard<std::mutex> lock(m_mutex);
 
     auto internal_data_iterator = m_time_marker_to_internal_swapchain_data_map.find(in_time_marker);
@@ -590,11 +611,20 @@ Anvil::Queue* OpenGL::VKSwapchainManager::get_presentable_queue(const OpenGL::Ti
 Anvil::Format OpenGL::VKSwapchainManager::get_swapchain_format(const SwapchainPropsSnapshot*  in_swapchain_props_ptr,
                                                                const Anvil::RenderingSurface* in_surface_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* TODO: For now, stick to BGRA8_UNORM.
      *
      *       We should actually be picking a supported format which most closely matches the requested configuration.
      */
-    Anvil::Format result = Anvil::Format::B8G8R8A8_UNORM;
+    Anvil::Format formats[] = {
+    						Anvil::Format::R8G8B8A8_UNORM,
+    						Anvil::Format::B8G8R8A8_UNORM,
+    						Anvil::Format::R8G8B8_UNORM,
+    						Anvil::Format::B8G8R8_UNORM,
+    						};
+
+    Anvil::Format result = Anvil::Format::R8G8B8A8_UNORM;
 
     vkgl_assert(m_pixel_format_reqs.n_blue_bits  == 8);
     vkgl_assert(m_pixel_format_reqs.n_green_bits == 8);
@@ -603,11 +633,21 @@ Anvil::Format OpenGL::VKSwapchainManager::get_swapchain_format(const SwapchainPr
     {
         bool format_accepted = false;
 
-        vkgl_assert(in_surface_ptr->is_compatible_with_image_format(dynamic_cast<Anvil::SGPUDevice*>(m_backend_ptr->get_device_ptr() )->get_physical_device(),
-                                                                    Anvil::Format::B8G8R8A8_UNORM,
+        for (auto current_format : formats)
+        {
+        	vkgl_assert(in_surface_ptr->is_compatible_with_image_format(dynamic_cast<Anvil::SGPUDevice*>(m_backend_ptr->get_device_ptr() )->get_physical_device(),
+                                                                    current_format,
                                                                    &format_accepted) );
 
-        format_accepted = true;
+            if (format_accepted == true)
+            {
+            	result = current_format;
+            	break;
+            }
+        }
+        
+        vkgl_assert(format_accepted == true);
+        
     }
 
     return result;
@@ -615,6 +655,8 @@ Anvil::Format OpenGL::VKSwapchainManager::get_swapchain_format(const SwapchainPr
 
 Anvil::ImageUsageFlags OpenGL::VKSwapchainManager::get_swapchain_image_usage_flags(const Anvil::RenderingSurface* in_surface_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     Anvil::ImageUsageFlags     result        = Anvil::ImageUsageFlagBits::NONE;
     Anvil::SurfaceCapabilities surface_caps;
 
@@ -671,6 +713,8 @@ end:
 
 OpenGL::TimeMarker OpenGL::VKSwapchainManager::get_tot_time_marker() const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     std::lock_guard<std::mutex> lock(m_mutex);
 
     vkgl_assert(m_snapshot_manager_ptr != nullptr);
@@ -680,6 +724,8 @@ OpenGL::TimeMarker OpenGL::VKSwapchainManager::get_tot_time_marker() const
 
 bool OpenGL::VKSwapchainManager::init()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     bool result = false;
 
     /* Initialize the swapchain snapshot manager. */
@@ -708,6 +754,8 @@ end:
 
 void OpenGL::VKSwapchainManager::on_all_swapchain_snapshots_out_of_scope()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* When this function is called, none of the swapchains are being referenced. While we must not assume ToT
      * swapchain is not being used at this point, anything older than ToT should technically no longer be in use.
      * Hence, this is a good opportunity to do some housekeeping */
@@ -741,6 +789,8 @@ void OpenGL::VKSwapchainManager::on_all_swapchain_snapshots_out_of_scope()
 void OpenGL::VKSwapchainManager::on_frame_acquisition_semaphore_out_of_scope(InternalSwapchainData* in_swapchain_data_ptr,
                                                                              Anvil::Semaphore*      in_sem_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(in_sem_ptr != nullptr);
 
     if (!in_sem_ptr->reset() )
@@ -756,6 +806,8 @@ void OpenGL::VKSwapchainManager::on_frame_acquisition_semaphore_out_of_scope(Int
 
 Anvil::SemaphoreUniquePtr OpenGL::VKSwapchainManager::pop_frame_acquisition_semaphore(const OpenGL::TimeMarker& in_time_marker)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     std::lock_guard<std::mutex> lock(m_mutex);
     auto                        internal_data_iterator = m_time_marker_to_internal_swapchain_data_map.find(in_time_marker);
 
@@ -765,17 +817,19 @@ Anvil::SemaphoreUniquePtr OpenGL::VKSwapchainManager::pop_frame_acquisition_sema
     auto                      internal_data_ptr = internal_data_iterator->second.get();
     Anvil::SemaphoreUniquePtr result_sem_ptr    = std::move(internal_data_ptr->frame_acquisition_semaphore_ptrs.back() );
 
-    internal_data_ptr->frame_acquisition_semaphore_ptrs.pop_back();
+	auto delete_callback_for_result_sem_ptr = std::bind(&OpenGL::VKSwapchainManager::on_frame_acquisition_semaphore_out_of_scope,
+                                                       this,
+                                                       internal_data_ptr,
+                                                       result_sem_ptr.get() );
 
     return Anvil::SemaphoreUniquePtr(result_sem_ptr.release(),
-                                     std::bind(&OpenGL::VKSwapchainManager::on_frame_acquisition_semaphore_out_of_scope,
-                                               this,
-                                               internal_data_ptr,
-                                               result_sem_ptr.get() ));
+                                     delete_callback_for_result_sem_ptr);
 }
 
 void OpenGL::VKSwapchainManager::recreate_swapchain(const bool& in_defer_till_acquisition)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     std::lock_guard<std::mutex> lock(m_mutex);
 
     m_should_recreate_swapchain = true;
@@ -794,6 +848,8 @@ void OpenGL::VKSwapchainManager::recreate_swapchain(const bool& in_defer_till_ac
 
 void OpenGL::VKSwapchainManager::set_swap_interval(const int32_t& in_swap_interval)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     std::lock_guard<std::mutex> lock(m_mutex);
     SwapchainPropsSnapshot*     tot_swapchain_ptr = reinterpret_cast<SwapchainPropsSnapshot*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
@@ -807,8 +863,10 @@ void OpenGL::VKSwapchainManager::set_swap_interval(const int32_t& in_swap_interv
     }
 }
 
-void OpenGL::VKSwapchainManager::set_target_window(HWND in_window_handle)
+void OpenGL::VKSwapchainManager::set_target_window(void* in_window_handle)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     std::lock_guard<std::mutex> lock(m_mutex);
     SwapchainPropsSnapshot*     tot_swapchain_ptr = reinterpret_cast<SwapchainPropsSnapshot*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 

@@ -439,6 +439,7 @@ OpenGL::ContextProperty OpenGL::Utils::get_context_property_for_gl_enum(const GL
         case GL_READ_BUFFER:                                   result = OpenGL::ContextProperty::Read_Buffer;                                   break;
         case GL_READ_FRAMEBUFFER_BINDING:                      result = OpenGL::ContextProperty::Read_Framebuffer_Binding;                      break;
         case GL_RENDERER:                                      result = OpenGL::ContextProperty::Renderer;                                      break;
+        case GL_VENDOR:                                      result = OpenGL::ContextProperty::Vendor;                                      break;
         case GL_RENDERBUFFER_BINDING:                          result = OpenGL::ContextProperty::Renderbuffer_Binding;                          break;
         case GL_SAMPLER_BINDING:                               result = OpenGL::ContextProperty::Sampler_Binding;                               break;
         case GL_SAMPLES:                                       result = OpenGL::ContextProperty::Samples;                                       break;
@@ -752,6 +753,7 @@ GLenum OpenGL::Utils::get_gl_enum_for_context_property(const OpenGL::ContextProp
         case OpenGL::ContextProperty::Read_Buffer:                                   result = GL_READ_BUFFER;                                   break;
         case OpenGL::ContextProperty::Read_Framebuffer_Binding:                      result = GL_READ_FRAMEBUFFER_BINDING;                      break;
         case OpenGL::ContextProperty::Renderer:                                      result = GL_RENDERER;                                      break;
+        case OpenGL::ContextProperty::Vendor:                                      result = GL_VENDOR;                                      break;
         case OpenGL::ContextProperty::Renderbuffer_Binding:                          result = GL_RENDERBUFFER_BINDING;                          break;
         case OpenGL::ContextProperty::Sampler_Binding:                               result = GL_SAMPLER_BINDING;                               break;
         case OpenGL::ContextProperty::Samples:                                       result = GL_SAMPLES;                                       break;
@@ -2878,6 +2880,47 @@ GLenum OpenGL::Utils::get_gl_enum_for_variable_type(const VariableType& in_type)
     return result;
 }
 
+uint32_t OpenGL::Utils::get_n_bytes_for_variable_type(const VariableType& in_type)
+{
+    uint32_t result = 0;
+
+    switch (in_type)
+    {
+        case OpenGL::VariableType::Bool:                 result = 4;                                      break;
+        case OpenGL::VariableType::Bvec2:                result = 4 * 2;                                 break;
+        case OpenGL::VariableType::Bvec3:                result = 4 * 3;                                 break;
+        case OpenGL::VariableType::Bvec4:                result = 4 * 4;                                 break;
+        case OpenGL::VariableType::Float:                result = 4;                                     break;
+        case OpenGL::VariableType::Int:                  result = 4;                                       break;
+        case OpenGL::VariableType::Ivec2:                result = 4 * 2;                                  break;
+        case OpenGL::VariableType::Ivec3:                result = 4 * 3;                                  break;
+        case OpenGL::VariableType::Ivec4:                result = 4 * 4;                                  break;
+        case OpenGL::VariableType::Mat2:                 result = 4 * 2 * 2;                                break;
+        case OpenGL::VariableType::Mat3:                 result = 4 * 3 * 3;                                break;
+        case OpenGL::VariableType::Mat4:                 result = 4 * 4 * 4;                                break;
+        case OpenGL::VariableType::Mat2x3:               result = 4 * 2 * 3;                              break;
+        case OpenGL::VariableType::Mat2x4:               result = 4 * 2 * 4;                              break;
+        case OpenGL::VariableType::Mat3x2:               result = 4 * 3 * 2;                              break;
+        case OpenGL::VariableType::Mat3x4:               result = 4 * 3 * 4;                              break;
+        case OpenGL::VariableType::Mat4x2:               result = 4 * 4 * 2;                              break;
+        case OpenGL::VariableType::Mat4x3:               result = 4 * 4 * 3;                              break;
+        case OpenGL::VariableType::Uint:                 result = 4;                              break;
+        case OpenGL::VariableType::Uvec2:                result = 4 * 2;                         break;
+        case OpenGL::VariableType::Uvec3:                result = 4 * 3;                         break;
+        case OpenGL::VariableType::Uvec4:                result = 4 * 4;                         break;
+        case OpenGL::VariableType::Vec2:                 result = 4 * 2;                                break;
+        case OpenGL::VariableType::Vec3:                 result = 4 * 3;                                break;
+        case OpenGL::VariableType::Vec4:                 result = 4 * 4;                                break;
+
+        default:
+        {
+            result = 0;
+        }
+    }
+
+    return result;
+}
+
 GLenum OpenGL::Utils::get_gl_enum_for_vertex_attribute_pointer_property(const OpenGL::VertexAttributePointerProperty& in_pname)
 {
     GLenum result = 0;
@@ -3067,6 +3110,11 @@ OpenGL::InternalFormat OpenGL::Utils::get_internal_format_for_gl_enum(const GLen
         case GL_RGBA:            result = OpenGL::InternalFormat::RGBA;            break;
 
         /* Sized internal formats */
+        case GL_DEPTH_COMPONENT32F: result = OpenGL::InternalFormat::Depth_Component32_Float; break;
+        case GL_DEPTH_COMPONENT24: result = OpenGL::InternalFormat::Depth_Component24; break;
+        case GL_DEPTH_COMPONENT16: result = OpenGL::InternalFormat::Depth_Component16; break;
+        case GL_DEPTH32F_STENCIL8: result = OpenGL::InternalFormat::Depth32_Float_Stencil8; break;
+        case GL_DEPTH24_STENCIL8: result = OpenGL::InternalFormat::Depth24_Stencil8; break;
         case GL_R11F_G11F_B10F: result = OpenGL::InternalFormat::R11F_G11F_B10F; break;
         case GL_R16:            result = OpenGL::InternalFormat::R16;            break;
         case GL_R16_SNORM:      result = OpenGL::InternalFormat::R16_SNorm;      break;

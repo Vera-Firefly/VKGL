@@ -16,6 +16,7 @@
 #include "OpenGL/frontend/gl_state_manager.h"
 #include "OpenGL/frontend/gl_texture_manager.h"
 #include "OpenGL/frontend/gl_vao_manager.h"
+#include "OpenGL/frontend/gl_compatibility_manager.h"
 #include "OpenGL/types.h"
 
 namespace OpenGL
@@ -29,6 +30,7 @@ namespace OpenGL
         /* Public functions */
 
         static ContextUniquePtr create(const VKGL::IWSIContext*     in_wsi_context_ptr,
+                                       const OpenGL::IBackend*		in_backend_ptr,
                                        OpenGL::IBackendGLCallbacks* in_backend_gl_callbacks_ptr,
                                        const IBackendCapabilities*  in_backend_caps_ptr);
 
@@ -878,9 +880,17 @@ namespace OpenGL
             return m_gl_vao_manager_ptr.get();
         }
 
+        OpenGL::GLCompatibilityManager* get_compatibility_manager_ptr() const final
+        {
+            vkgl_assert(m_gl_compatibility_manager_ptr != nullptr);
+
+            return m_gl_compatibility_manager_ptr.get();
+        }
+
         /* Private functions */
 
         Context(const VKGL::IWSIContext*            in_wsi_context_ptr,
+                const OpenGL::IBackend*				in_backend_ptr,
                 OpenGL::IBackendGLCallbacks*        in_backend_gl_callbacks_ptr,
                 const OpenGL::IBackendCapabilities* in_backend_caps_ptr);
 
@@ -894,6 +904,7 @@ namespace OpenGL
         /* Private variables */
         const OpenGL::IBackendCapabilities* m_backend_caps_ptr;
         OpenGL::IBackendGLCallbacks*        m_backend_gl_callbacks_ptr;
+        const OpenGL::IBackend*				m_backend_ptr;
 
         OpenGL::DispatchTable        m_dispatch_table;
         std::vector<std::string>     m_supported_extensions;
@@ -909,6 +920,7 @@ namespace OpenGL
         GLStateManagerUniquePtr        m_gl_state_manager_ptr;
         GLTextureManagerUniquePtr      m_gl_texture_manager_ptr;
         GLVAOManagerUniquePtr          m_gl_vao_manager_ptr;
+        GLCompatibilityManagerUniquePtr          m_gl_compatibility_manager_ptr;
     };
 }
 

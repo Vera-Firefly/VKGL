@@ -38,7 +38,7 @@ namespace OpenGL
 
             ~EnkiTaskSet()
             {
-                enkiDeleteTaskSet(m_task_set_ptr);
+                enkiDeleteTaskSet(m_task_scheduler_ptr, m_task_set_ptr);
             }
 
             enkiTaskScheduler* get_task_scheduler_ptr()

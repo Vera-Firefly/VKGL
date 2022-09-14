@@ -7,6 +7,7 @@
 #include "OpenGL/frontend/gl_framebuffer_manager.h"
 #include "OpenGL/frontend/gl_reference.h"
 #include "OpenGL/frontend/gl_renderbuffer_manager.h"
+#include "OpenGL/frontend/gl_texture_manager.h"
 
 
 OpenGL::GLFramebufferManager::Framebuffer& OpenGL::GLFramebufferManager::Framebuffer::operator=(const Framebuffer& in_framebuffer)
@@ -18,8 +19,11 @@ OpenGL::GLFramebufferManager::Framebuffer& OpenGL::GLFramebufferManager::Framebu
 
 OpenGL::GLFramebufferManager::Framebuffer::Framebuffer(const OpenGL::GLFramebufferManager::Framebuffer& in_framebuffer,
                                                        const bool&                                      in_convert_from_proxy_to_nonproxy,
-                                                       OpenGL::GLRenderbufferManager*                   in_frontend_rb_manager_ptr)
+                                                       OpenGL::GLRenderbufferManager*                   in_frontend_rb_manager_ptr,
+                                                       OpenGL::GLTextureManager*                   in_frontend_texture_manager_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     state = in_framebuffer.state;
 
     if (in_convert_from_proxy_to_nonproxy)
@@ -33,8 +37,7 @@ OpenGL::GLFramebufferManager::Framebuffer::Framebuffer(const OpenGL::GLFramebuff
 
             if (current_color_attachment.texture_reference_ptr != nullptr)
             {
-                /* TODO: Add texture support */
-                anvil_assert_fail();
+                current_color_attachment.texture_reference_ptr = in_frontend_texture_manager_ptr->acquire_current_latest_snapshot_reference(current_color_attachment.texture_reference_ptr->get_payload().id);
             }
         }
 
@@ -45,19 +48,17 @@ OpenGL::GLFramebufferManager::Framebuffer::Framebuffer(const OpenGL::GLFramebuff
 
         if (state.depth_attachment.texture_reference_ptr != nullptr)
         {
-            /* TODO: Add texture support */
-            anvil_assert_fail();
+            state.depth_attachment.texture_reference_ptr = in_frontend_texture_manager_ptr->acquire_current_latest_snapshot_reference(state.depth_attachment.texture_reference_ptr->get_payload().id);
         }
 
         if (state.stencil_attachment.renderbuffer_reference_ptr != nullptr)
         {
-            state.stencil_attachment.renderbuffer_reference_ptr = in_frontend_rb_manager_ptr->acquire_current_latest_snapshot_reference(state.depth_attachment.renderbuffer_reference_ptr->get_payload().id);
+            state.stencil_attachment.renderbuffer_reference_ptr = in_frontend_rb_manager_ptr->acquire_current_latest_snapshot_reference(state.stencil_attachment.renderbuffer_reference_ptr->get_payload().id);
         }
 
         if (state.stencil_attachment.texture_reference_ptr != nullptr)
         {
-            /* TODO: Add texture support */
-            anvil_assert_fail();
+            state.stencil_attachment.texture_reference_ptr = in_frontend_texture_manager_ptr->acquire_current_latest_snapshot_reference(state.stencil_attachment.texture_reference_ptr->get_payload().id);
         }
     }
 }
@@ -65,23 +66,29 @@ OpenGL::GLFramebufferManager::Framebuffer::Framebuffer(const OpenGL::GLFramebuff
 OpenGL::GLFramebufferManager::Framebuffer::Framebuffer(const OpenGL::IGLLimits* in_limits_ptr)
     :state(in_limits_ptr->get_max_color_attachments() )
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* Stub */
 }
 
 OpenGL::GLFramebufferManager::GLFramebufferManager(const OpenGL::IGLLimits*              in_limits_ptr,
                                                    const VKGL::IWSIContext*              in_wsi_context_ptr,
                                                    const OpenGL::IContextObjectManagers* in_frontend_object_managers_ptr)
-    :GLObjectManager               (0,     /* in_first_valid_nondefault_id */
+    :GLObjectManager               (1,     /* in_first_valid_nondefault_id */
                                     true), /* in_expose_default_object     */
      m_frontend_object_managers_ptr(in_frontend_object_managers_ptr),
      m_limits_ptr                  (in_limits_ptr),
      m_wsi_context_ptr             (in_wsi_context_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /*  Stub */
 }
 
 OpenGL::GLFramebufferManager::~GLFramebufferManager()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* Stub - everything is handled by the base class. */
 }
 
@@ -94,7 +101,8 @@ std::unique_ptr<void, std::function<void(void*)> > OpenGL::GLFramebufferManager:
     result_ptr.reset(
         new Framebuffer(*reinterpret_cast<const Framebuffer*>(in_ptr),
                         in_convert_from_proxy_to_nonproxy,
-                        m_frontend_object_managers_ptr->get_renderbuffer_manager_ptr() )
+                        m_frontend_object_managers_ptr->get_renderbuffer_manager_ptr(),
+                        m_frontend_object_managers_ptr->get_texture_manager_ptr() )
     );
     vkgl_assert(result_ptr != nullptr);
 
@@ -111,6 +119,8 @@ OpenGL::GLFramebufferManagerUniquePtr OpenGL::GLFramebufferManager::create(const
                                                                            const VKGL::IWSIContext*              in_wsi_context_ptr,
                                                                            const OpenGL::IContextObjectManagers* in_frontend_object_managers_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     OpenGL::GLFramebufferManagerUniquePtr result_ptr;
 
     result_ptr.reset(new GLFramebufferManager(in_limits_ptr,
@@ -185,6 +195,8 @@ std::unique_ptr<void, std::function<void(void*)> > OpenGL::GLFramebufferManager:
 const OpenGL::GLFramebufferManager::Framebuffer* OpenGL::GLFramebufferManager::get_framebuffer_ptr(const GLuint&             in_id,
                                                                                                    const OpenGL::TimeMarker* in_opt_time_marker_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     return reinterpret_cast<const OpenGL::GLFramebufferManager::Framebuffer*>(get_internal_object_props_ptr(in_id,
                                                                                                             in_opt_time_marker_ptr) );
 }
@@ -192,6 +204,8 @@ const OpenGL::GLFramebufferManager::Framebuffer* OpenGL::GLFramebufferManager::g
 OpenGL::GLFramebufferManager::Framebuffer* OpenGL::GLFramebufferManager::get_framebuffer_ptr(const GLuint&             in_id,
                                                                                               const OpenGL::TimeMarker* in_opt_time_marker_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     return reinterpret_cast<OpenGL::GLFramebufferManager::Framebuffer*>(get_internal_object_props_ptr(in_id,
                                                                                                       in_opt_time_marker_ptr) );
 }
@@ -203,12 +217,16 @@ void OpenGL::GLFramebufferManager::get_framebuffer_property(const GLuint&       
                                                             const uint32_t&                     in_n_args,
                                                             void*                               out_result_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_not_implemented();
 }
 
 const OpenGL::FramebufferState* OpenGL::GLFramebufferManager::get_framebuffer_state(const GLuint&             in_id,
                                                                                     const OpenGL::TimeMarker* in_opt_time_marker_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto                            fb_ptr     = get_framebuffer_ptr(in_id,
                                                                      in_opt_time_marker_ptr);
     const OpenGL::FramebufferState* result_ptr = nullptr;
@@ -226,6 +244,8 @@ bool OpenGL::GLFramebufferManager::set_attachment_renderbuffer(const GLuint&    
                                                                const OpenGL::FramebufferAttachmentPoint& in_attachment,
                                                                OpenGL::GLRenderbufferReferenceUniquePtr  in_rb_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto fb_ptr = get_framebuffer_ptr(in_id,
                                       nullptr); /* in_opt_time_marker_ptr */
     bool result = false;
@@ -233,20 +253,54 @@ bool OpenGL::GLFramebufferManager::set_attachment_renderbuffer(const GLuint&    
     vkgl_assert(fb_ptr != nullptr);
     if (fb_ptr != nullptr)
     {
-        const auto n_attachment = (static_cast<uint32_t>(in_attachment) - static_cast<uint32_t>(OpenGL::FramebufferAttachmentPoint::Color_Attachment0) );
+        auto n_attachment = (static_cast<uint32_t>(in_attachment) - static_cast<uint32_t>(OpenGL::FramebufferAttachmentPoint::Color_Attachment0) );
 
         vkgl_assert(n_attachment >= 0 &&
-                    n_attachment <= 7);
+                    n_attachment <= 10);
 
-        auto& attachment_props = fb_ptr->state.color_attachments.at(n_attachment);
-
-        if ( attachment_props.type                       != OpenGL::FramebufferAttachmentObjectType::Renderbuffer ||
-            *attachment_props.renderbuffer_reference_ptr != *in_rb_ptr)
+        bool is_both_depth_stencil = (n_attachment == 9);
+        
+        for (int n = 0;
+        		n < 2;
+        		n++)
         {
-            attachment_props.renderbuffer_reference_ptr = std::move(in_rb_ptr);
-            attachment_props.type                       = OpenGL::FramebufferAttachmentObjectType::Renderbuffer;
-
-            update_last_modified_time(in_id);
+            if (is_both_depth_stencil) n_attachment = 8;
+            
+            OpenGL::FramebufferAttachmentPointState* attachment_props = nullptr;
+            {
+            	if (n_attachment >= 0 &&
+                    n_attachment <= 7)
+                {
+                	attachment_props = &fb_ptr->state.color_attachments.at(n_attachment);
+                }
+            	else if (n_attachment == 8)
+                {
+                	attachment_props = &fb_ptr->state.depth_attachment;
+                }
+            	else if (n_attachment == 10)
+                {
+                	attachment_props = &fb_ptr->state.stencil_attachment;
+                }
+            }
+    
+            if ( attachment_props->type                       != OpenGL::FramebufferAttachmentObjectType::Renderbuffer ||
+                *attachment_props->renderbuffer_reference_ptr != *in_rb_ptr)
+            {
+                attachment_props->renderbuffer_reference_ptr = std::move(in_rb_ptr);
+                attachment_props->type                       = OpenGL::FramebufferAttachmentObjectType::Renderbuffer;
+    
+                update_last_modified_time(in_id);
+            }
+            
+            if (is_both_depth_stencil)
+            {
+            	n_attachment = 10;
+            	is_both_depth_stencil = false;
+            }
+            else
+            {
+            	break;
+            }
         }
 
         result = true;
@@ -260,6 +314,8 @@ bool OpenGL::GLFramebufferManager::set_attachment_texture(const GLuint&         
                                                           OpenGL::GLTextureReferenceUniquePtr       in_texture_ptr,
                                                           const GLint&                              in_level)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto fb_ptr = get_framebuffer_ptr(in_id,
                                       nullptr); /* in_opt_time_marker_ptr */
     bool result = false;
@@ -267,22 +323,56 @@ bool OpenGL::GLFramebufferManager::set_attachment_texture(const GLuint&         
     vkgl_assert(fb_ptr != nullptr);
     if (fb_ptr != nullptr)
     {
-        const auto n_attachment = (static_cast<uint32_t>(in_attachment) - static_cast<uint32_t>(OpenGL::FramebufferAttachmentPoint::Color_Attachment0) );
+        auto n_attachment = (static_cast<uint32_t>(in_attachment) - static_cast<uint32_t>(OpenGL::FramebufferAttachmentPoint::Color_Attachment0) );
 
         vkgl_assert(n_attachment >= 0 &&
-                    n_attachment <= 7);
+                    n_attachment <= 10);
 
-        auto& attachment_props = fb_ptr->state.color_attachments.at(n_attachment);
-
-        if ( attachment_props.type                  != OpenGL::FramebufferAttachmentObjectType::Texture ||
-            *attachment_props.texture_reference_ptr != *in_texture_ptr                                  ||
-             attachment_props.texture_level         != in_level)
+        bool is_both_depth_stencil = (n_attachment == 9);
+        
+        for (int n = 0;
+        		n < 2;
+        		n++)
         {
-            attachment_props.type                  = OpenGL::FramebufferAttachmentObjectType::Texture;
-            attachment_props.texture_reference_ptr = std::move(in_texture_ptr);
-            attachment_props.texture_level         = in_level;
-
-            update_last_modified_time(in_id);
+            if (is_both_depth_stencil) n_attachment = 8;
+            
+            OpenGL::FramebufferAttachmentPointState* attachment_props = nullptr;
+            {
+            	if (n_attachment >= 0 &&
+                    n_attachment <= 7)
+                {
+                	attachment_props = &fb_ptr->state.color_attachments.at(n_attachment);
+                }
+            	else if (n_attachment == 8)
+                {
+                	attachment_props = &fb_ptr->state.depth_attachment;
+                }
+            	else if (n_attachment == 10)
+                {
+                	attachment_props = &fb_ptr->state.stencil_attachment;
+                }
+            }
+    
+            if ( attachment_props->type                  != OpenGL::FramebufferAttachmentObjectType::Texture ||
+                *attachment_props->texture_reference_ptr != *in_texture_ptr                                  ||
+                 attachment_props->texture_level         != in_level)
+            {
+                attachment_props->type                  = OpenGL::FramebufferAttachmentObjectType::Texture;
+                attachment_props->texture_reference_ptr = std::move(in_texture_ptr);
+                attachment_props->texture_level         = in_level;
+    
+                update_last_modified_time(in_id);
+            }
+            
+            if (is_both_depth_stencil)
+            {
+            	n_attachment = 10;
+            	is_both_depth_stencil = false;
+            }
+            else
+            {
+            	break;
+            }
         }
 
         result = true;
@@ -296,6 +386,8 @@ bool OpenGL::GLFramebufferManager::set_attachment_texture_1D(const GLuint&      
                                                              OpenGL::GLTextureReferenceUniquePtr       in_texture_ptr,
                                                              const GLint&                              in_level)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto fb_ptr = get_framebuffer_ptr(in_id,
                                       nullptr); /* in_opt_time_marker_ptr */
     bool result = false;
@@ -303,22 +395,56 @@ bool OpenGL::GLFramebufferManager::set_attachment_texture_1D(const GLuint&      
     vkgl_assert(fb_ptr != nullptr);
     if (fb_ptr != nullptr)
     {
-        const auto n_attachment = (static_cast<uint32_t>(in_attachment) - static_cast<uint32_t>(OpenGL::FramebufferAttachmentPoint::Color_Attachment0) );
+        auto n_attachment = (static_cast<uint32_t>(in_attachment) - static_cast<uint32_t>(OpenGL::FramebufferAttachmentPoint::Color_Attachment0) );
 
         vkgl_assert(n_attachment >= 0 &&
-                    n_attachment <= 7);
+                    n_attachment <= 10);
 
-        auto& attachment_props = fb_ptr->state.color_attachments.at(n_attachment);
-
-        if ( attachment_props.type                  != OpenGL::FramebufferAttachmentObjectType::Texture_1D ||
-            *attachment_props.texture_reference_ptr != *in_texture_ptr                                     ||
-             attachment_props.texture_level         != in_level)
+        bool is_both_depth_stencil = (n_attachment == 9);
+        
+        for (int n = 0;
+        		n < 2;
+        		n++)
         {
-            attachment_props.type                  = OpenGL::FramebufferAttachmentObjectType::Texture_1D;
-            attachment_props.texture_reference_ptr = std::move(in_texture_ptr);
-            attachment_props.texture_level         = in_level;
-
-            update_last_modified_time(in_id);
+            if (is_both_depth_stencil) n_attachment = 8;
+            
+            OpenGL::FramebufferAttachmentPointState* attachment_props = nullptr;
+            {
+            	if (n_attachment >= 0 &&
+                    n_attachment <= 7)
+                {
+                	attachment_props = &fb_ptr->state.color_attachments.at(n_attachment);
+                }
+            	else if (n_attachment == 8)
+                {
+                	attachment_props = &fb_ptr->state.depth_attachment;
+                }
+            	else if (n_attachment == 10)
+                {
+                	attachment_props = &fb_ptr->state.stencil_attachment;
+                }
+            }
+    
+            if ( attachment_props->type                  != OpenGL::FramebufferAttachmentObjectType::Texture_1D ||
+                *attachment_props->texture_reference_ptr != *in_texture_ptr                                     ||
+                 attachment_props->texture_level         != in_level)
+            {
+                attachment_props->type                  = OpenGL::FramebufferAttachmentObjectType::Texture_1D;
+                attachment_props->texture_reference_ptr = std::move(in_texture_ptr);
+                attachment_props->texture_level         = in_level;
+    
+                update_last_modified_time(in_id);
+            }
+            
+            if (is_both_depth_stencil)
+            {
+            	n_attachment = 10;
+            	is_both_depth_stencil = false;
+            }
+            else
+            {
+            	break;
+            }
         }
 
         result = true;
@@ -333,6 +459,8 @@ bool OpenGL::GLFramebufferManager::set_attachment_texture_2D(const GLuint&      
                                                              OpenGL::GLTextureReferenceUniquePtr       in_texture_ptr,
                                                              const GLint&                              in_level)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto fb_ptr = get_framebuffer_ptr(in_id,
                                       nullptr); /* in_opt_time_marker_ptr */
     bool result = false;
@@ -340,7 +468,7 @@ bool OpenGL::GLFramebufferManager::set_attachment_texture_2D(const GLuint&      
     vkgl_assert(fb_ptr != nullptr);
     if (fb_ptr != nullptr)
     {
-        const auto n_attachment          = (static_cast<uint32_t>(in_attachment) - static_cast<uint32_t>(OpenGL::FramebufferAttachmentPoint::Color_Attachment0) );
+        auto n_attachment          = (static_cast<uint32_t>(in_attachment) - static_cast<uint32_t>(OpenGL::FramebufferAttachmentPoint::Color_Attachment0) );
         const auto texture_cube_map_face = (in_textarget == OpenGL::TextureTarget::Cube_Map_Negative_X) ? OpenGL::TextureCubeMapFace::Negative_X :
                                            (in_textarget == OpenGL::TextureTarget::Cube_Map_Negative_Y) ? OpenGL::TextureCubeMapFace::Negative_Y :
                                            (in_textarget == OpenGL::TextureTarget::Cube_Map_Negative_Z) ? OpenGL::TextureCubeMapFace::Negative_Z :
@@ -349,21 +477,55 @@ bool OpenGL::GLFramebufferManager::set_attachment_texture_2D(const GLuint&      
                                            (in_textarget == OpenGL::TextureTarget::Cube_Map_Positive_Z) ? OpenGL::TextureCubeMapFace::Positive_Z :
                                                                                                           OpenGL::TextureCubeMapFace::None;
         vkgl_assert(n_attachment >= 0 &&
-                    n_attachment <= 7);
+                    n_attachment <= 10);
 
-        auto& attachment_props = fb_ptr->state.color_attachments.at(n_attachment);
-
-        if ( attachment_props.type                  != OpenGL::FramebufferAttachmentObjectType::Texture_2D ||
-             attachment_props.texture_cube_map_face != texture_cube_map_face                               ||
-            *attachment_props.texture_reference_ptr != *in_texture_ptr                                     ||
-             attachment_props.texture_level         != in_level)
+        bool is_both_depth_stencil = (n_attachment == 9);
+        
+        for (int n = 0;
+        		n < 2;
+        		n++)
         {
-            attachment_props.type                  = OpenGL::FramebufferAttachmentObjectType::Texture_2D;
-            attachment_props.texture_cube_map_face = texture_cube_map_face;
-            attachment_props.texture_reference_ptr = std::move(in_texture_ptr);
-            attachment_props.texture_level         = in_level;
-
-            update_last_modified_time(in_id);
+            if (is_both_depth_stencil) n_attachment = 8;
+            
+            OpenGL::FramebufferAttachmentPointState* attachment_props = nullptr;
+            {
+            	if (n_attachment >= 0 &&
+                    n_attachment <= 7)
+                {
+                	attachment_props = &fb_ptr->state.color_attachments.at(n_attachment);
+                }
+            	else if (n_attachment == 8)
+                {
+                	attachment_props = &fb_ptr->state.depth_attachment;
+                }
+            	else if (n_attachment == 10)
+                {
+                	attachment_props = &fb_ptr->state.stencil_attachment;
+                }
+            }
+    
+            if ( attachment_props->type                  != OpenGL::FramebufferAttachmentObjectType::Texture_2D ||
+                 attachment_props->texture_cube_map_face != texture_cube_map_face                               ||
+                *attachment_props->texture_reference_ptr != *in_texture_ptr                                     ||
+                 attachment_props->texture_level         != in_level)
+            {
+                attachment_props->type                  = OpenGL::FramebufferAttachmentObjectType::Texture_2D;
+                attachment_props->texture_cube_map_face = texture_cube_map_face;
+                attachment_props->texture_reference_ptr = std::move(in_texture_ptr);
+                attachment_props->texture_level         = in_level;
+    
+                update_last_modified_time(in_id);
+            }
+            
+            if (is_both_depth_stencil)
+            {
+            	n_attachment = 10;
+            	is_both_depth_stencil = false;
+            }
+            else
+            {
+            	break;
+            }
         }
 
         result = true;
@@ -379,6 +541,8 @@ bool OpenGL::GLFramebufferManager::set_attachment_texture_3D(const GLuint&      
                                                              const GLint&                              in_level,
                                                              const GLint&                              in_layer)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto fb_ptr = get_framebuffer_ptr(in_id,
                                       nullptr); /* in_opt_time_marker_ptr */
     bool result = false;
@@ -388,24 +552,58 @@ bool OpenGL::GLFramebufferManager::set_attachment_texture_3D(const GLuint&      
 
     if (fb_ptr != nullptr)
     {
-        const auto n_attachment = (static_cast<uint32_t>(in_attachment) - static_cast<uint32_t>(OpenGL::FramebufferAttachmentPoint::Color_Attachment0) );
+        auto n_attachment = (static_cast<uint32_t>(in_attachment) - static_cast<uint32_t>(OpenGL::FramebufferAttachmentPoint::Color_Attachment0) );
 
         vkgl_assert(n_attachment >= 0 &&
-                    n_attachment <= 7);
+                    n_attachment <= 10);
 
-        auto& attachment_props = fb_ptr->state.color_attachments.at(n_attachment);
-
-        if ( attachment_props.type                  != OpenGL::FramebufferAttachmentObjectType::Texture_3D ||
-            *attachment_props.texture_reference_ptr != *in_texture_ptr                                     ||
-             attachment_props.texture_layer         != in_layer                                            ||
-             attachment_props.texture_level         != in_level)
+        bool is_both_depth_stencil = (n_attachment == 9);
+        
+        for (int n = 0;
+        		n < 2;
+        		n++)
         {
-            attachment_props.type                  = OpenGL::FramebufferAttachmentObjectType::Texture_3D;
-            attachment_props.texture_reference_ptr = std::move(in_texture_ptr);
-            attachment_props.texture_layer         = in_layer;
-            attachment_props.texture_level         = in_level;
-
-            update_last_modified_time(in_id);
+            if (is_both_depth_stencil) n_attachment = 8;
+            
+            OpenGL::FramebufferAttachmentPointState* attachment_props = nullptr;
+            {
+            	if (n_attachment >= 0 &&
+                    n_attachment <= 7)
+                {
+                	attachment_props = &fb_ptr->state.color_attachments.at(n_attachment);
+                }
+            	else if (n_attachment == 8)
+                {
+                	attachment_props = &fb_ptr->state.depth_attachment;
+                }
+            	else if (n_attachment == 10)
+                {
+                	attachment_props = &fb_ptr->state.stencil_attachment;
+                }
+            }
+    
+            if ( attachment_props->type                  != OpenGL::FramebufferAttachmentObjectType::Texture_3D ||
+                *attachment_props->texture_reference_ptr != *in_texture_ptr                                     ||
+                 attachment_props->texture_layer         != in_layer                                            ||
+                 attachment_props->texture_level         != in_level)
+            {
+                attachment_props->type                  = OpenGL::FramebufferAttachmentObjectType::Texture_3D;
+                attachment_props->texture_reference_ptr = std::move(in_texture_ptr);
+                attachment_props->texture_layer         = in_layer;
+                attachment_props->texture_level         = in_level;
+    
+                update_last_modified_time(in_id);
+            }
+            
+            if (is_both_depth_stencil)
+            {
+            	n_attachment = 10;
+            	is_both_depth_stencil = false;
+            }
+            else
+            {
+            	break;
+            }
         }
 
         result = true;
@@ -420,6 +618,8 @@ bool OpenGL::GLFramebufferManager::set_attachment_texture_layer(const GLuint&   
                                                                 const GLint&                              in_level,
                                                                 const GLint&                              in_layer)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto fb_ptr = get_framebuffer_ptr(in_id,
                                       nullptr); /* in_opt_time_marker_ptr */
     bool result = false;
@@ -428,24 +628,58 @@ bool OpenGL::GLFramebufferManager::set_attachment_texture_layer(const GLuint&   
 
     if (fb_ptr != nullptr)
     {
-        const auto n_attachment = (static_cast<uint32_t>(in_attachment) - static_cast<uint32_t>(OpenGL::FramebufferAttachmentPoint::Color_Attachment0) );
+        auto n_attachment = (static_cast<uint32_t>(in_attachment) - static_cast<uint32_t>(OpenGL::FramebufferAttachmentPoint::Color_Attachment0) );
 
         vkgl_assert(n_attachment >= 0 &&
-                    n_attachment <= 7);
+                    n_attachment <= 10);
 
-        auto& attachment_props = fb_ptr->state.color_attachments.at(n_attachment);
-
-        if ( attachment_props.type                  != OpenGL::FramebufferAttachmentObjectType::Texture_Layer ||
-            *attachment_props.texture_reference_ptr != *in_texture_ptr                                        ||
-             attachment_props.texture_layer         != in_layer                                               ||
-             attachment_props.texture_level         != in_level)
+        bool is_both_depth_stencil = (n_attachment == 9);
+        
+        for (int n = 0;
+        		n < 2;
+        		n++)
         {
-            attachment_props.type                  = OpenGL::FramebufferAttachmentObjectType::Texture_Layer;
-            attachment_props.texture_reference_ptr = std::move(in_texture_ptr);
-            attachment_props.texture_layer         = in_layer;
-            attachment_props.texture_level         = in_level;
-
-            update_last_modified_time(in_id);
+            if (is_both_depth_stencil) n_attachment = 8;
+            
+            OpenGL::FramebufferAttachmentPointState* attachment_props = nullptr;
+            {
+            	if (n_attachment >= 0 &&
+                    n_attachment <= 7)
+                {
+                	attachment_props = &fb_ptr->state.color_attachments.at(n_attachment);
+                }
+            	else if (n_attachment == 8)
+                {
+                	attachment_props = &fb_ptr->state.depth_attachment;
+                }
+            	else if (n_attachment == 10)
+                {
+                	attachment_props = &fb_ptr->state.stencil_attachment;
+                }
+            }
+    
+            if ( attachment_props->type                  != OpenGL::FramebufferAttachmentObjectType::Texture_Layer ||
+                *attachment_props->texture_reference_ptr != *in_texture_ptr                                        ||
+                 attachment_props->texture_layer         != in_layer                                               ||
+                 attachment_props->texture_level         != in_level)
+            {
+                attachment_props->type                  = OpenGL::FramebufferAttachmentObjectType::Texture_Layer;
+                attachment_props->texture_reference_ptr = std::move(in_texture_ptr);
+                attachment_props->texture_layer         = in_layer;
+                attachment_props->texture_level         = in_level;
+    
+                update_last_modified_time(in_id);
+            }
+            
+            if (is_both_depth_stencil)
+            {
+            	n_attachment = 10;
+            	is_both_depth_stencil = false;
+            }
+            else
+            {
+            	break;
+            }
         }
 
         result = true;
@@ -459,6 +693,8 @@ bool OpenGL::GLFramebufferManager::set_draw_buffers(const GLuint&             in
                                                     const GLsizei&            in_n,
                                                     const OpenGL::DrawBuffer* in_bufs_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto fb_ptr = get_framebuffer_ptr(in_id,
                                       nullptr); /* in_opt_time_marker_ptr */
     bool result = false;
@@ -467,7 +703,17 @@ bool OpenGL::GLFramebufferManager::set_draw_buffers(const GLuint&             in
     if (fb_ptr != nullptr)
     {
         static_assert(sizeof(OpenGL::DrawBuffer)                                                == sizeof(fb_ptr->state.draw_buffer_per_color_output.at(0) ), "");
-        vkgl_assert  (static_cast<uint32_t>(fb_ptr->state.draw_buffer_per_color_output.size() ) >= static_cast<uint32_t>(in_n) );
+        //vkgl_assert  (static_cast<uint32_t>(fb_ptr->state.draw_buffer_per_color_output.size() ) >= static_cast<uint32_t>(in_n) );
+        vkgl_assert  (static_cast<uint32_t>(in_n) >= 0);
+        
+        bool modified = false;
+        
+        if  (static_cast<uint32_t>(fb_ptr->state.draw_buffer_per_color_output.size() ) != static_cast<uint32_t>(in_n) )
+        {
+        	fb_ptr->state.draw_buffer_per_color_output.resize(in_n);
+        	
+        	modified = true;
+        }
 
         if (memcmp(fb_ptr->state.draw_buffer_per_color_output.data(),
                    in_bufs_ptr,
@@ -477,7 +723,12 @@ bool OpenGL::GLFramebufferManager::set_draw_buffers(const GLuint&             in
                    in_bufs_ptr,
                    sizeof(OpenGL::DrawBuffer) * in_n);
 
-            update_last_modified_time(in_id);
+            modified = true;
+        }
+        
+        if (modified)
+        {
+        	update_last_modified_time(in_id);
         }
 
         result = true;
@@ -489,6 +740,8 @@ bool OpenGL::GLFramebufferManager::set_draw_buffers(const GLuint&             in
 bool OpenGL::GLFramebufferManager::set_read_buffer(const GLuint&             in_id,
                                                    const OpenGL::ReadBuffer& in_buf)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto fb_ptr = get_framebuffer_ptr(in_id,
                                       nullptr); /* in_opt_time_marker_ptr */
     bool result = false;

@@ -2,7 +2,7 @@
  *
  * This code is licensed under MIT license (see LICENSE.txt for details)
  */
-#include "Common\semaphore.h"
+#include "Common/semaphore.h"
 
 /* NOTE: Shamelessly based on https://stackoverflow.com/questions/4792449/c0x-has-no-semaphores-how-to-synchronize-threads */
 

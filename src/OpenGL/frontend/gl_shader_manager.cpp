@@ -13,11 +13,15 @@ OpenGL::GLShaderManager::GLShaderManager(IBackendGLCallbacks* in_backend_ptr)
                      true),          /* in_expose_default_object     */
      m_backend_ptr  (in_backend_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     vkgl_assert(in_backend_ptr != nullptr);
 }
 
 OpenGL::GLShaderManager::~GLShaderManager()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* Stub - everything is handled by the base class. */
 }
 
@@ -47,6 +51,8 @@ void OpenGL::GLShaderManager::copy_internal_data_object(const void* in_src_ptr,
 
 OpenGL::GLShaderManagerUniquePtr OpenGL::GLShaderManager::create(IBackendGLCallbacks* in_backend_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     OpenGL::GLShaderManagerUniquePtr result_ptr;
 
     result_ptr.reset(new GLShaderManager(in_backend_ptr) );
@@ -86,10 +92,12 @@ bool OpenGL::GLShaderManager::get_shader_glsl(const GLuint&             in_id,
                                               const OpenGL::TimeMarker* in_opt_time_marker_ptr,
                                               const char**              out_result_ptr_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     static const char* null_string = "";
     bool               result      = false;
-    const auto         shader_ptr  = get_shader_ptr(in_id,
-                                                    in_opt_time_marker_ptr);
+    const auto         shader_ptr  = const_cast<OpenGL::GLShaderManager*>(this)->get_shader_ptr(in_id,
+                                                    													in_opt_time_marker_ptr);
 
     if (shader_ptr != nullptr)
     {
@@ -106,10 +114,12 @@ bool OpenGL::GLShaderManager::get_shader_infolog(const GLuint&             in_id
                                                  const OpenGL::TimeMarker* in_opt_time_marker_ptr,
                                                  const char**              out_result_ptr_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     static const char* null_string = "";
     bool               result      = false;
-    const auto         shader_ptr  = get_shader_ptr(in_id,
-                                                    in_opt_time_marker_ptr);
+    volatile const auto        shader_ptr            = const_cast<OpenGL::GLShaderManager*>(this)->get_shader_ptr(in_id,
+                                                                                                                  in_opt_time_marker_ptr);
 
     if (shader_ptr != nullptr)
     {
@@ -135,9 +145,11 @@ bool OpenGL::GLShaderManager::get_shader_type(const GLuint&             in_id,
                                               const OpenGL::TimeMarker* in_opt_time_marker_ptr,
                                               OpenGL::ShaderType*       out_result_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     bool       result     = false;
-    const auto shader_ptr = get_shader_ptr(in_id,
-                                           in_opt_time_marker_ptr);
+    volatile const auto        shader_ptr            = const_cast<OpenGL::GLShaderManager*>(this)->get_shader_ptr(in_id,
+                                                                                                                  in_opt_time_marker_ptr);
 
     if (shader_ptr != nullptr)
     {
@@ -155,6 +167,8 @@ bool OpenGL::GLShaderManager::get_shader_property(const GLuint&                 
                                                   const uint32_t&                   in_n_params_components,
                                                   GLint*                            out_params_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     bool                       result                = false;
     volatile const auto        shader_ptr            = const_cast<OpenGL::GLShaderManager*>(this)->get_shader_ptr(in_shader,
                                                                                                                   in_opt_time_marker_ptr);
@@ -268,9 +282,11 @@ void OpenGL::GLShaderManager::set_shader_backend_spirv_blob_id(const GLuint&    
                                                                const OpenGL::TimeMarker* in_opt_time_marker_ptr,
                                                                OpenGL::SPIRVBlobID       in_spirv_blob_id)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     bool result     = false;
     auto shader_ptr = get_shader_ptr(in_id,
-                                     nullptr /* in_opt_time_marker_ptr */);
+                                     in_opt_time_marker_ptr);
 
     if (shader_ptr != nullptr)
     {
@@ -285,6 +301,8 @@ void OpenGL::GLShaderManager::set_shader_backend_spirv_blob_id(const GLuint&    
 bool OpenGL::GLShaderManager::set_shader_glsl(const GLuint&      in_id,
                                               const std::string& in_glsl)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     bool result     = false;
     auto shader_ptr = get_shader_ptr(in_id,
                                      nullptr /* in_opt_time_marker_ptr */);
@@ -307,6 +325,8 @@ bool OpenGL::GLShaderManager::set_shader_glsl(const GLuint&      in_id,
 bool OpenGL::GLShaderManager::set_shader_type(const GLuint&             in_id,
                                               const OpenGL::ShaderType& in_type)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     bool result     = false;
     auto shader_ptr = get_shader_ptr(in_id,
                                      nullptr /* in_opt_time_marker_ptr */);

@@ -17,6 +17,8 @@ OpenGL::GLStateManager::GLStateManager(const IGLLimits*         in_limits_ptr,
      m_object_managers_ptr(in_object_managers_ptr),
      m_wsi_context_ptr    (in_wsi_context_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* Initialize snapshot manager.. */
     m_snapshot_manager_ptr.reset(
         new OpenGL::SnapshotManager<GLContextStateReference, GLContextStateReferenceUniquePtr, GLContextStatePayload>(0, /* in_object_id - don't care */
@@ -37,6 +39,8 @@ OpenGL::GLStateManager::GLStateManager(const IGLLimits*         in_limits_ptr,
 
 OpenGL::GLStateManager::~GLStateManager()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     m_snapshot_manager_ptr.reset();
 }
 
@@ -45,7 +49,9 @@ OpenGL::GLContextStateReferenceUniquePtr OpenGL::GLStateManager::acquire_current
     /* NOTE: Must only be called from rendering context's thread */
     vkgl_assert(m_snapshot_manager_ptr != nullptr);
 
-    return m_snapshot_manager_ptr->acquire_reference(m_snapshot_manager_ptr->get_last_modified_time() );
+    auto payload = GLContextStatePayload(m_snapshot_manager_ptr->get_last_modified_time() );
+    
+    return m_snapshot_manager_ptr->acquire_reference(payload);
 }
 
 std::unique_ptr<void, std::function<void(void*)> > OpenGL::GLStateManager::clone_internal_data_object(const void* in_ptr,
@@ -97,6 +103,8 @@ std::unique_ptr<void, std::function<void(void*)> > OpenGL::GLStateManager::creat
 
 void OpenGL::GLStateManager::disable(const OpenGL::Capability& in_capability)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     bool modified  = false;
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
@@ -347,6 +355,8 @@ void OpenGL::GLStateManager::disable(const OpenGL::Capability& in_capability)
 
 void OpenGL::GLStateManager::enable(const OpenGL::Capability& in_capability)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     bool modified  = false;
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
@@ -597,6 +607,8 @@ void OpenGL::GLStateManager::enable(const OpenGL::Capability& in_capability)
 
 const OpenGL::GLBufferReference* OpenGL::GLStateManager::get_bound_buffer_object(const OpenGL::BufferTarget& in_target) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const OpenGL::GLBufferReference* result_ptr = nullptr;
     auto                             state_ptr  = reinterpret_cast<const OpenGL::ContextState*>(m_snapshot_manager_ptr->get_readonly_snapshot(OpenGL::LATEST_SNAPSHOT_AVAILABLE,
                                                                                                                                               false /* in_proxy_references_permitted */) );
@@ -611,6 +623,8 @@ const OpenGL::GLBufferReference* OpenGL::GLStateManager::get_bound_buffer_object
 const OpenGL::GLBufferReference* OpenGL::GLStateManager::get_bound_buffer_object(const OpenGL::BufferTarget& in_target,
                                                                                  const uint32_t&             in_index) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto state_ptr = reinterpret_cast<const OpenGL::ContextState*>(m_snapshot_manager_ptr->get_readonly_snapshot(OpenGL::LATEST_SNAPSHOT_AVAILABLE,
                                                                                                                  false /* in_proxy_references_permitted */) );
 
@@ -622,6 +636,8 @@ const OpenGL::GLBufferReference* OpenGL::GLStateManager::get_bound_buffer_object
 
 const OpenGL::GLFramebufferReference* OpenGL::GLStateManager::get_bound_framebuffer_object(const OpenGL::FramebufferTarget& in_target) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const OpenGL::GLFramebufferReference* result_ptr = nullptr;
     auto                                  state_ptr  = reinterpret_cast<const OpenGL::ContextState*>(m_snapshot_manager_ptr->get_readonly_snapshot(OpenGL::LATEST_SNAPSHOT_AVAILABLE,
                                                                                                                                                    false /* in_proxy_references_permitted */) );
@@ -629,6 +645,7 @@ const OpenGL::GLFramebufferReference* OpenGL::GLStateManager::get_bound_framebuf
     switch (in_target)
     {
         case OpenGL::FramebufferTarget::Draw_Framebuffer: result_ptr = state_ptr->draw_framebuffer_proxy_reference_ptr.get(); break;
+        case OpenGL::FramebufferTarget::Framebuffer: 		result_ptr = state_ptr->draw_framebuffer_proxy_reference_ptr.get(); break;
         case OpenGL::FramebufferTarget::Read_Framebuffer: result_ptr = state_ptr->read_framebuffer_proxy_reference_ptr.get(); break;
 
         default:
@@ -642,6 +659,8 @@ const OpenGL::GLFramebufferReference* OpenGL::GLStateManager::get_bound_framebuf
 
 const OpenGL::GLRenderbufferReference* OpenGL::GLStateManager::get_bound_renderbuffer_object() const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* NOTE: There is ALWAYS a renderbuffer binding set up for a GL context. */
     auto state_ptr = reinterpret_cast<const OpenGL::ContextState*>(m_snapshot_manager_ptr->get_readonly_snapshot(OpenGL::LATEST_SNAPSHOT_AVAILABLE,
                                                                                                                  false /* in_proxy_references_permitted */) );
@@ -653,6 +672,8 @@ const OpenGL::GLRenderbufferReference* OpenGL::GLStateManager::get_bound_renderb
 
 const OpenGL::GLVAOReference* OpenGL::GLStateManager::get_bound_vertex_array_object() const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* NOTE: There is ALWAYS a VAO binding set up for a GL context. */
     auto state_ptr = reinterpret_cast<const OpenGL::ContextState*>(m_snapshot_manager_ptr->get_readonly_snapshot(OpenGL::LATEST_SNAPSHOT_AVAILABLE,
                                                                                                                  false /* in_proxy_references_permitted */) );
@@ -664,6 +685,8 @@ const OpenGL::GLVAOReference* OpenGL::GLStateManager::get_bound_vertex_array_obj
 
 OpenGL::ErrorCode OpenGL::GLStateManager::get_error(const bool& in_reset_error_code)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     OpenGL::ErrorCode result = m_current_error_code;
 
     /* TODO: In cases where we have pending GpU-side ops which may trigger deferred failures,
@@ -681,6 +704,8 @@ void OpenGL::GLStateManager::get_parameter(const OpenGL::ContextProperty&    in_
                                            const OpenGL::GetSetArgumentType& in_arg_type,
                                            void*                             out_arg_value_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto       state_ptr             = reinterpret_cast<const OpenGL::ContextState*>(m_snapshot_manager_ptr->get_readonly_snapshot(OpenGL::LATEST_SNAPSHOT_AVAILABLE,
                                                                                                                                    false /* in_proxy_references_permitted */) );
     const auto texture_binding_pname = OpenGL::Utils::get_texture_binding_property_for_context_property(in_pname);
@@ -724,6 +749,8 @@ void OpenGL::GLStateManager::get_pixel_store_parameter(const OpenGL::PixelStoreP
                                                        const OpenGL::GetSetArgumentType& in_arg_type,
                                                        void*                             out_arg_value_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const auto prop_map_iterator = m_pixel_store_prop_map.find(in_pname);
     auto       state_ptr         = reinterpret_cast<const OpenGL::ContextState*>(m_snapshot_manager_ptr->get_readonly_snapshot(OpenGL::LATEST_SNAPSHOT_AVAILABLE,
                                                                                                                                false /* in_proxy_references_permitted */) );
@@ -743,6 +770,8 @@ void OpenGL::GLStateManager::get_pixel_store_parameter(const OpenGL::PixelStoreP
 
 const OpenGL::ContextState* OpenGL::GLStateManager::get_state(const OpenGL::TimeMarker& in_time_marker) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* NOTE: If in_time_marker is OpenGL::LATEST_SNAPSHOT_AVAILABLE, the function should only be called from rendering context's thread!
      *       Otherwise, the returned pointer may go out of scope at any time.
      *
@@ -759,6 +788,8 @@ const OpenGL::ContextState* OpenGL::GLStateManager::get_state(const OpenGL::Time
 GLuint OpenGL::GLStateManager::get_texture_binding(const uint32_t&              in_n_texture_unit,
                                                    const OpenGL::TextureTarget& in_texture_target) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     GLuint result                 = 0;
     auto   state_ptr              = reinterpret_cast<const OpenGL::ContextState*>(m_snapshot_manager_ptr->get_readonly_snapshot(OpenGL::LATEST_SNAPSHOT_AVAILABLE,
                                                                                                                                 false /* in_proxy_references_permitted */) );
@@ -769,16 +800,22 @@ GLuint OpenGL::GLStateManager::get_texture_binding(const uint32_t&              
     {
         switch (in_texture_target)
         {
-            case OpenGL::TextureTarget::_1D:                   result = texture_unit_state_ptr->binding_1d;                   break;
-            case OpenGL::TextureTarget::_1D_Array:             result = texture_unit_state_ptr->binding_1d_array;             break;
-            case OpenGL::TextureTarget::_2D:                   result = texture_unit_state_ptr->binding_2d;                   break;
-            case OpenGL::TextureTarget::_2D_Array:             result = texture_unit_state_ptr->binding_2d_array;             break;
-            case OpenGL::TextureTarget::_2D_Multisample:       result = texture_unit_state_ptr->binding_2d_multisample;       break;
-            case OpenGL::TextureTarget::_2D_Multisample_Array: result = texture_unit_state_ptr->binding_2d_multisample_array; break;
-            case OpenGL::TextureTarget::_3D:                   result = texture_unit_state_ptr->binding_3d;                   break;
-            case OpenGL::TextureTarget::Cube_Map:              result = texture_unit_state_ptr->binding_cube_map;             break;
-            case OpenGL::TextureTarget::Rectangle:             result = texture_unit_state_ptr->binding_rectangle;            break;
-            case OpenGL::TextureTarget::Texture_Buffer:        result = texture_unit_state_ptr->binding_texture_buffer;       break;
+            case OpenGL::TextureTarget::_1D:                   				result = texture_unit_state_ptr->binding_1d;                   break;
+            case OpenGL::TextureTarget::_1D_Array:             				result = texture_unit_state_ptr->binding_1d_array;             break;
+            case OpenGL::TextureTarget::_2D:                   				result = texture_unit_state_ptr->binding_2d;                   break;
+            case OpenGL::TextureTarget::_2D_Array:             				result = texture_unit_state_ptr->binding_2d_array;             break;
+            case OpenGL::TextureTarget::_2D_Multisample:       				result = texture_unit_state_ptr->binding_2d_multisample;       break;
+            case OpenGL::TextureTarget::_2D_Multisample_Array: 				result = texture_unit_state_ptr->binding_2d_multisample_array; break;
+            case OpenGL::TextureTarget::_3D:                   				result = texture_unit_state_ptr->binding_3d;                   break;
+            case OpenGL::TextureTarget::Cube_Map:              				result = texture_unit_state_ptr->binding_cube_map;             break;
+            case OpenGL::TextureTarget::Rectangle:             				result = texture_unit_state_ptr->binding_rectangle;            break;
+            case OpenGL::TextureTarget::Cube_Map_Negative_X:             result = texture_unit_state_ptr->binding_cube_map_negative_x;            break;
+            case OpenGL::TextureTarget::Cube_Map_Negative_Y:             result = texture_unit_state_ptr->binding_cube_map_negative_y;            break;
+            case OpenGL::TextureTarget::Cube_Map_Negative_Z:             result = texture_unit_state_ptr->binding_cube_map_negative_z;            break;
+            case OpenGL::TextureTarget::Cube_Map_Positive_X:             result = texture_unit_state_ptr->binding_cube_map_positive_x;            break;
+            case OpenGL::TextureTarget::Cube_Map_Positive_Y:             result = texture_unit_state_ptr->binding_cube_map_positive_y;            break;
+            case OpenGL::TextureTarget::Cube_Map_Positive_Z:             result = texture_unit_state_ptr->binding_cube_map_positive_z;            break;
+            case OpenGL::TextureTarget::Texture_Buffer:        					result = texture_unit_state_ptr->binding_texture_buffer;       break;
 
             default:
             {
@@ -794,6 +831,8 @@ void OpenGL::GLStateManager::get_texture_binding_parameter(const OpenGL::Texture
                                                            const OpenGL::GetSetArgumentType&     in_arg_type,
                                                            void*                                 out_arg_value_ptr) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     GLuint      result                = 0;
     auto        state_ptr             = reinterpret_cast<const OpenGL::ContextState*>(m_snapshot_manager_ptr->get_readonly_snapshot(OpenGL::LATEST_SNAPSHOT_AVAILABLE,
                                                                                                                                     false /* in_proxy_references_permitted */) );
@@ -827,6 +866,8 @@ void OpenGL::GLStateManager::get_texture_binding_parameter(const OpenGL::Texture
 
 void OpenGL::GLStateManager::init_prop_maps()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     m_context_prop_map =
     {
         {OpenGL::ContextProperty::Active_Texture,                             {OpenGL::GetSetArgumentType::Int,                           1, offsetof(OpenGL::ContextState, active_texture_unit)}  },
@@ -921,26 +962,31 @@ void OpenGL::GLStateManager::init_prop_maps()
 
 void OpenGL::GLStateManager::init_texture_units()
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const uint32_t n_texture_units = m_limits_ptr->get_max_texture_image_units();
+    vkgl_assert(n_texture_units != 0);
     auto           state_ptr       = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
     for (uint32_t n_texture_unit = 0;
                   n_texture_unit < n_texture_units;
                 ++n_texture_unit)
     {
-        state_ptr->texture_unit_to_state_ptr_map[n_texture_unit].reset(
-            new TextureUnitState()
-        );
+        state_ptr->texture_unit_to_state_ptr_map[n_texture_unit].reset(new TextureUnitState() );
 
         if (state_ptr->texture_unit_to_state_ptr_map[n_texture_unit] == nullptr)
         {
             vkgl_assert(state_ptr->texture_unit_to_state_ptr_map[n_texture_unit] != nullptr);
         }
     }
+
+    m_snapshot_manager_ptr->update_last_modified_time();
 }
 
 void OpenGL::GLStateManager::set_active_texture(const uint32_t& in_n_texture_unit)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
     if (state_ptr->active_texture_unit != in_n_texture_unit)
@@ -952,11 +998,20 @@ void OpenGL::GLStateManager::set_active_texture(const uint32_t& in_n_texture_uni
 
 }
 
+void OpenGL::GLStateManager::set_error(const OpenGL::ErrorCode& in_error_code)
+{
+    FUN_ENTRY(DEBUG_DEPTH);
+    
+	m_current_error_code = in_error_code;
+}
+
 void OpenGL::GLStateManager::set_blend_color(const float& in_red,
                                              const float& in_green,
                                              const float& in_blue,
                                              const float& in_alpha)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
     if (fabs(state_ptr->blend_color[0] - in_red)   > 1.0f / 255.0 /* r8 */ ||
@@ -975,6 +1030,8 @@ void OpenGL::GLStateManager::set_blend_color(const float& in_red,
 
 void OpenGL::GLStateManager::set_blend_equation(const OpenGL::BlendEquation& in_blend_equation)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
     if (state_ptr->blend_equation_alpha != in_blend_equation ||
@@ -990,6 +1047,8 @@ void OpenGL::GLStateManager::set_blend_equation(const OpenGL::BlendEquation& in_
 void OpenGL::GLStateManager::set_blend_functions(const OpenGL::BlendFunction& in_src_rgba_function,
                                                  const OpenGL::BlendFunction& in_dst_rgba_function)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
     if (state_ptr->blend_func_src_alpha != in_src_rgba_function ||
@@ -1011,6 +1070,8 @@ void OpenGL::GLStateManager::set_blend_functions_separate(const OpenGL::BlendFun
                                                           const OpenGL::BlendFunction& in_src_alpha_function,
                                                           const OpenGL::BlendFunction& in_dst_alpha_function)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
     if (state_ptr->blend_func_src_alpha != in_src_alpha_function ||
@@ -1030,6 +1091,8 @@ void OpenGL::GLStateManager::set_blend_functions_separate(const OpenGL::BlendFun
 void OpenGL::GLStateManager::set_bound_buffer_object(const OpenGL::BufferTarget&        in_target,
                                                      OpenGL::GLBufferReferenceUniquePtr in_buffer_reference_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto state_ptr    = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
     auto map_iterator = state_ptr->nonindexed_buffer_proxy_binding_ptrs.find(in_target);
 
@@ -1051,6 +1114,8 @@ void OpenGL::GLStateManager::set_bound_buffer_object(const OpenGL::BufferTarget&
                                                      const size_t&                      in_start_offset,
                                                      const size_t&                      in_size)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto state_ptr    = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
     auto map_iterator = state_ptr->indexed_buffer_proxy_binding_ptrs.find(IndexedBufferTarget(in_target, in_index) );
 
@@ -1070,6 +1135,8 @@ void OpenGL::GLStateManager::set_bound_buffer_object(const OpenGL::BufferTarget&
 
 void OpenGL::GLStateManager::set_bound_program_object(OpenGL::GLProgramReferenceUniquePtr in_program_binding_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
     if ((in_program_binding_ptr == nullptr && state_ptr->program_proxy_reference_ptr != nullptr)                                                                       ||
@@ -1085,9 +1152,13 @@ void OpenGL::GLStateManager::set_bound_program_object(OpenGL::GLProgramReference
 void OpenGL::GLStateManager::set_bound_framebuffer_object(const OpenGL::FramebufferTarget&        in_target,
                                                           OpenGL::GLFramebufferReferenceUniquePtr in_framebuffer_reference_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
-    vkgl_assert(in_target == OpenGL::FramebufferTarget::Draw_Framebuffer); //< todo
+    vkgl_assert(in_target == OpenGL::FramebufferTarget::Draw_Framebuffer || //< todo
+    			in_target == OpenGL::FramebufferTarget::Framebuffer 	|| //< todo
+    			in_target == OpenGL::FramebufferTarget::Read_Framebuffer); //< todo
 
     if ((in_framebuffer_reference_ptr == nullptr && state_ptr->draw_framebuffer_proxy_reference_ptr != nullptr)                                                                                      ||
         (in_framebuffer_reference_ptr != nullptr && state_ptr->draw_framebuffer_proxy_reference_ptr == nullptr)                                                                                      ||
@@ -1101,6 +1172,8 @@ void OpenGL::GLStateManager::set_bound_framebuffer_object(const OpenGL::Framebuf
 
 void OpenGL::GLStateManager::set_bound_renderbuffer_object(OpenGL::GLRenderbufferReferenceUniquePtr in_renderbuffer_reference_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
     if ((in_renderbuffer_reference_ptr == nullptr && state_ptr->renderbuffer_proxy_reference_ptr != nullptr)                                                                                   ||
@@ -1115,6 +1188,8 @@ void OpenGL::GLStateManager::set_bound_renderbuffer_object(OpenGL::GLRenderbuffe
 
 void OpenGL::GLStateManager::set_bound_vertex_array_object(OpenGL::GLVAOReferenceUniquePtr in_vao_binding_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
     if ((in_vao_binding_ptr == nullptr && state_ptr->vao_proxy_reference_ptr != nullptr)                                                               ||
@@ -1132,6 +1207,8 @@ void OpenGL::GLStateManager::set_clear_color_value(const float& in_red,
                                                    const float& in_blue,
                                                    const float& in_alpha)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
     if (fabs(state_ptr->color_clear_value[0] - in_red)   > 1.0f / 255.0 /* r8 */ ||
@@ -1150,6 +1227,8 @@ void OpenGL::GLStateManager::set_clear_color_value(const float& in_red,
 
 void OpenGL::GLStateManager::set_clear_depth_value(const double& in_value)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
     if (fabs(state_ptr->depth_clear_value - in_value) > 1e-5f)
@@ -1162,6 +1241,8 @@ void OpenGL::GLStateManager::set_clear_depth_value(const double& in_value)
 
 void OpenGL::GLStateManager::set_clear_stencil_value(const int& in_value)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
     if (state_ptr->stencil_clear_value != in_value)
@@ -1177,6 +1258,8 @@ void OpenGL::GLStateManager::set_color_mask(const bool& in_red,
                                             const bool& in_blue,
                                             const bool& in_alpha)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const uint32_t red_mask   = (in_red)   ? ((1 << 0) | (1 << 4) | (1 << 8)  | (1 << 12) | (1 << 16) | (1 << 20) | (1 << 24) | (1 << 28)) : 0;
     const uint32_t green_mask = (in_green) ? ((1 << 1) | (1 << 5) | (1 << 9)  | (1 << 13) | (1 << 17) | (1 << 21) | (1 << 25) | (1 << 29)) : 0;
     const uint32_t blue_mask  = (in_blue)  ? ((1 << 2) | (1 << 6) | (1 << 10) | (1 << 14) | (1 << 18) | (1 << 22) | (1 << 26) | (1 << 30)) : 0;
@@ -1193,6 +1276,8 @@ void OpenGL::GLStateManager::set_color_mask(const bool& in_red,
 
 void OpenGL::GLStateManager::set_cull_mode(const OpenGL::CullMode& in_mode)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
     if (state_ptr->cull_face_mode != in_mode)
@@ -1205,6 +1290,8 @@ void OpenGL::GLStateManager::set_cull_mode(const OpenGL::CullMode& in_mode)
 
 void OpenGL::GLStateManager::set_depth_function(const OpenGL::DepthFunction& in_function)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
     if (state_ptr->depth_function != in_function)
@@ -1217,6 +1304,8 @@ void OpenGL::GLStateManager::set_depth_function(const OpenGL::DepthFunction& in_
 
 void OpenGL::GLStateManager::set_depth_mask(const bool& in_flag)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
     if (state_ptr->depth_writemask != in_flag)
@@ -1230,6 +1319,8 @@ void OpenGL::GLStateManager::set_depth_mask(const bool& in_flag)
 void OpenGL::GLStateManager::set_depth_range(const double& in_near,
                                              const double& in_far)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
     if (fabs(state_ptr->depth_range[0] - in_near) > 1e-5f ||
@@ -1244,6 +1335,8 @@ void OpenGL::GLStateManager::set_depth_range(const double& in_near,
 
 void OpenGL::GLStateManager::set_front_face_orientation(const OpenGL::FrontFaceOrientation& in_orientation)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
     if (state_ptr->front_face != in_orientation)
@@ -1257,6 +1350,8 @@ void OpenGL::GLStateManager::set_front_face_orientation(const OpenGL::FrontFaceO
 void OpenGL::GLStateManager::set_hint(const OpenGL::HintTarget& in_target,
                                       const OpenGL::HintMode&   in_mode)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     bool modified  = false;
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
@@ -1320,6 +1415,8 @@ void OpenGL::GLStateManager::set_hint(const OpenGL::HintTarget& in_target,
 
 void OpenGL::GLStateManager::set_line_width(const float& in_width)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* TODO: Use actually supported line granularity here. */
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
@@ -1333,6 +1430,8 @@ void OpenGL::GLStateManager::set_line_width(const float& in_width)
 
 void OpenGL::GLStateManager::set_logic_op(const OpenGL::LogicOpMode& in_mode)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
     if (state_ptr->logic_op_mode != in_mode)
@@ -1347,6 +1446,8 @@ void OpenGL::GLStateManager::set_pixel_store_property(const OpenGL::PixelStorePr
                                                       const OpenGL::GetSetArgumentType& in_arg_type,
                                                       const void*                       in_arg_value_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const auto prop_map_iterator = m_pixel_store_prop_map.find(in_property);
     auto       state_ptr         = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
@@ -1372,6 +1473,8 @@ void OpenGL::GLStateManager::set_point_property(const OpenGL::PointProperty&    
                                                 const OpenGL::GetSetArgumentType& in_arg_type,
                                                 const void*                       in_arg_value_ptr)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     const auto prop_map_iterator = m_point_prop_map.find(in_property);
     auto       state_ptr         = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
@@ -1395,6 +1498,8 @@ void OpenGL::GLStateManager::set_point_property(const OpenGL::PointProperty&    
 
 void OpenGL::GLStateManager::set_point_size(const float& in_size)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     /* TODO: Use actually supported point granularity for the check below. */
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
@@ -1408,6 +1513,8 @@ void OpenGL::GLStateManager::set_point_size(const float& in_size)
 
 void OpenGL::GLStateManager::set_polygon_mode(const OpenGL::PolygonMode& in_mode)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
     if (state_ptr->polygon_mode != in_mode)
@@ -1421,6 +1528,8 @@ void OpenGL::GLStateManager::set_polygon_mode(const OpenGL::PolygonMode& in_mode
 void OpenGL::GLStateManager::set_polygon_offset(const float& in_factor,
                                                 const float& in_units)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
     if (fabs(state_ptr->polygon_offset_factor - in_factor) > 1e-5f ||
@@ -1436,6 +1545,8 @@ void OpenGL::GLStateManager::set_polygon_offset(const float& in_factor,
 void OpenGL::GLStateManager::set_sample_coverage(const float& in_value,
                                                  const bool&  in_invert)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
     if (state_ptr->is_sample_coverage_invert_enabled      != in_invert ||
@@ -1453,6 +1564,8 @@ void OpenGL::GLStateManager::set_scissor(const int32_t& in_x,
                                          const size_t&  in_width,
                                          const size_t&  in_height)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
     if (state_ptr->scissor_box[0] != in_x                            ||
@@ -1473,6 +1586,8 @@ void OpenGL::GLStateManager::set_stencil_function(const OpenGL::StencilFunction&
                                                   const int32_t&                 in_ref,
                                                   const uint32_t&                in_mask)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
     if (state_ptr->stencil_function_back         != in_func ||
@@ -1495,6 +1610,8 @@ void OpenGL::GLStateManager::set_stencil_function(const OpenGL::StencilFunction&
 
 void OpenGL::GLStateManager::set_stencil_mask(const uint32_t& in_mask)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
     if (state_ptr->stencil_writemask_back  != in_mask ||
@@ -1511,6 +1628,8 @@ void OpenGL::GLStateManager::set_stencil_operations(const OpenGL::StencilOperati
                                                     const OpenGL::StencilOperation& in_zfail,
                                                     const OpenGL::StencilOperation& in_zpass)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
     if (state_ptr->stencil_op_fail_back             != in_fail  ||
@@ -1535,6 +1654,8 @@ void OpenGL::GLStateManager::set_texture_binding(const uint32_t&              in
                                                  const OpenGL::TextureTarget& in_texture_target,
                                                  const GLuint&                in_texture_id)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     bool modified               = false;
     auto state_ptr              = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
     auto texture_unit_state_ptr = state_ptr->texture_unit_to_state_ptr_map.at(in_n_texture_unit).get();
@@ -1640,6 +1761,72 @@ void OpenGL::GLStateManager::set_texture_binding(const uint32_t&              in
                 break;
             }
 
+            case OpenGL::TextureTarget::Cube_Map_Negative_X:
+            {
+                if (texture_unit_state_ptr->binding_cube_map_negative_x != in_texture_id)
+                {
+                    texture_unit_state_ptr->binding_cube_map_negative_x = in_texture_id;
+                    modified                                  = true;
+                }
+
+                break;
+            }
+
+            case OpenGL::TextureTarget::Cube_Map_Negative_Y:
+            {
+                if (texture_unit_state_ptr->binding_cube_map_negative_y != in_texture_id)
+                {
+                    texture_unit_state_ptr->binding_cube_map_negative_y = in_texture_id;
+                    modified                                  = true;
+                }
+
+                break;
+            }
+
+            case OpenGL::TextureTarget::Cube_Map_Negative_Z:
+            {
+                if (texture_unit_state_ptr->binding_cube_map_negative_z != in_texture_id)
+                {
+                    texture_unit_state_ptr->binding_cube_map_negative_z = in_texture_id;
+                    modified                                  = true;
+                }
+
+                break;
+            }
+
+            case OpenGL::TextureTarget::Cube_Map_Positive_X:
+            {
+                if (texture_unit_state_ptr->binding_cube_map_positive_x != in_texture_id)
+                {
+                    texture_unit_state_ptr->binding_cube_map_positive_x = in_texture_id;
+                    modified                                  = true;
+                }
+
+                break;
+            }
+
+            case OpenGL::TextureTarget::Cube_Map_Positive_Y:
+            {
+                if (texture_unit_state_ptr->binding_cube_map_positive_y != in_texture_id)
+                {
+                    texture_unit_state_ptr->binding_cube_map_positive_y = in_texture_id;
+                    modified                                  = true;
+                }
+
+                break;
+            }
+
+            case OpenGL::TextureTarget::Cube_Map_Positive_Z:
+            {
+                if (texture_unit_state_ptr->binding_cube_map_positive_z != in_texture_id)
+                {
+                    texture_unit_state_ptr->binding_cube_map_positive_z = in_texture_id;
+                    modified                                  = true;
+                }
+
+                break;
+            }
+
             case OpenGL::TextureTarget::Texture_Buffer:
             {
                 if (texture_unit_state_ptr->binding_texture_buffer != in_texture_id)
@@ -1669,6 +1856,8 @@ void OpenGL::GLStateManager::set_viewport(const int32_t& in_x,
                                           const size_t&  in_width,
                                           const size_t&  in_height)
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     auto state_ptr = reinterpret_cast<OpenGL::ContextState*>(m_snapshot_manager_ptr->get_rw_tot_snapshot() );
 
     if (state_ptr->viewport[0] != in_x                            ||
@@ -1687,6 +1876,8 @@ void OpenGL::GLStateManager::set_viewport(const int32_t& in_x,
 
 bool OpenGL::GLStateManager::is_enabled(const OpenGL::Capability& in_capability) const
 {
+    FUN_ENTRY(DEBUG_DEPTH);
+    
     bool result    = false;
     auto state_ptr = reinterpret_cast<const OpenGL::ContextState*>(m_snapshot_manager_ptr->get_readonly_snapshot(OpenGL::LATEST_SNAPSHOT_AVAILABLE,
                                                                                                                  false /* in_proxy_references_permitted */) );
