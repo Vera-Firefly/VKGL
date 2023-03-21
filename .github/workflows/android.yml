@@ -5,13 +5,18 @@ jobs:
     name: NDK-R22b
     runs-on: ubuntu-20.04
     steps:
-    - name: Setup Android NDK R22b
-      uses: nttld/setup-ndk@v1
-      id: setup-ndk
-      with:
-        ndk-version: r22b
-        add-to-path: true
-    - uses: actions/checkout@v2
-    - name: build
-      run: |
-        $ANDROID_NDK_HOME/ndk-build NDK_PROJECT_PATH=. APP_BUILD_SCRIPT=./Android.mk NDK_APP_APPLICATION_MK=./Application.mk
+      - name: Setup Android NDK R22b
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r22b
+          add-to-path: true
+      - uses: actions/checkout@v2
+      - name: Build
+        run: |
+          $ANDROID_NDK_HOME/ndk-build NDK_PROJECT_PATH=. APP_BUILD_SCRIPT=./Android.mk NDK_APPLICATION_MK=./Application.mk
+      - name: Upload
+        uses: actions/upload-artifact@v2
+        with:
+          name: VKGL
+          path: libs/*
