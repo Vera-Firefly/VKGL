@@ -6,7 +6,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Setup Android NDK R22b
-        uses: nttld/setup-ndk@v2
+        uses: nttld/setup-ndk@v1
         id: setup-ndk
         with:
           ndk-version: r22b
