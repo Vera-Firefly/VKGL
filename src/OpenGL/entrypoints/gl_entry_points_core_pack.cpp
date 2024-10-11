@@ -423,7 +423,8 @@ GLenum OpenGL::vkglGetError (void){
     GET_CONTEXT(in_context_p)
 
     const auto error_vkgl = in_context_p->get_error();
-    OUT_DBG(error_vkgl);
+    const char* error_msg = in_context_p->get_error();
+    OUT_DBG(error_msg);
 
     return OpenGL::Utils::get_gl_enum_for_error_code(error_vkgl);
 
