@@ -3,6 +3,7 @@
  * This code is licensed under MIT license (see LICENSE.txt for details)
  */
 #include "Common/debug.h"
+#include "Common/debug_log.h"
 #include "Common/globals.h"
 #include "Common/macros.h"
 #include "OpenGL/utils_enum.h"
@@ -74,6 +75,7 @@ OpenGL::BlendFunction OpenGL::Utils::get_blend_function_for_gl_enum(const GLenum
             vkgl_assert_fail();
         }
     }
+    OUT_DBG(result);
 
     return result;
 }
@@ -840,6 +842,7 @@ GLenum OpenGL::Utils::get_gl_enum_for_error_code(const OpenGL::ErrorCode& in_err
             vkgl_assert_fail();
         }
     }
+    OUT_DBG(result);
 
     return result;
 }

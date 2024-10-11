@@ -1,5 +1,6 @@
 // Core OpenGL
 
+#include "Common/debug_log.h"
 #include "OpenGL/entrypoints/gl_entry_points_pack.h"
 
 
@@ -422,6 +423,7 @@ GLenum OpenGL::vkglGetError (void){
     GET_CONTEXT(in_context_p)
 
     const auto error_vkgl = in_context_p->get_error();
+    OUT_DBG(error_vkgl);
 
     return OpenGL::Utils::get_gl_enum_for_error_code(error_vkgl);
 
