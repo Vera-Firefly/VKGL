@@ -2,7 +2,6 @@
  *
  * This code is licensed under MIT license (see LICENSE.txt for details)
  */
-#include "Common/debug_log.h"
 #include "Common/macros.h"
 #include "Common/types.h"
 #include "OpenGL/types.h"
@@ -2492,9 +2491,6 @@ OpenGL::ErrorCode OpenGL::Context::get_error()
     FUN_ENTRY(DEBUG_DEPTH);
     
     vkgl_assert(m_gl_state_manager_ptr != nullptr);
-
-    const char* error_msg = m_gl_state_manager_ptr->get_error();
-    OUT_DBG(error_msg);
 
     return m_gl_state_manager_ptr->get_error();
 }
