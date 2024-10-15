@@ -2,7 +2,6 @@
  *
  * This code is licensed under MIT license (see LICENSE.txt for details)
  */
-#include "Common/debug_log.h"
 #include "Common/macros.h"
 #include "OpenGL/converters.h"
 #include "OpenGL/frontend/gl_state_manager.h"
@@ -697,7 +696,6 @@ OpenGL::ErrorCode OpenGL::GLStateManager::get_error(const bool& in_reset_error_c
     {
         m_current_error_code = OpenGL::ErrorCode::No_Error;
     }
-    OUT_DBG(result);
 
     return result;
 }
